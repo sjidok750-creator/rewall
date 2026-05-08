@@ -5,6 +5,7 @@ import Sidebar from './components/layout/Sidebar'
 import OverviewPanel from './components/modules/OverviewPanel'
 import PlaceholderPanel from './components/modules/PlaceholderPanel'
 import BasicInfoPanel from './components/modules/BasicInfoPanel'
+import SiteSurveyPanel from './components/modules/SiteSurveyPanel'
 
 function ModulePanel({ id }: { id: ModuleId }) {
   const show = (mid: ModuleId): React.CSSProperties =>
@@ -14,7 +15,7 @@ function ModulePanel({ id }: { id: ModuleId }) {
     <>
       <div style={show('overview')}><OverviewPanel /></div>
       <div style={show('basic-info')}><BasicInfoPanel /></div>
-      <div style={show('site-survey')}><PlaceholderPanel phase="PHASE 02" title="현장조사" /></div>
+      <div style={show('site-survey')}><SiteSurveyPanel /></div>
       <div style={show('input')}><PlaceholderPanel phase="PHASE 03" title="입력값 확정" /></div>
       <div style={show('stability')}><PlaceholderPanel phase="PHASE 04" title="안정성 검토" /></div>
       <div style={show('grade')}><PlaceholderPanel phase="PHASE 05" title="등급 판정" /></div>
