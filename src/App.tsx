@@ -4,6 +4,7 @@ import Header from './components/layout/Header'
 import Sidebar from './components/layout/Sidebar'
 import OverviewPanel from './components/modules/OverviewPanel'
 import PlaceholderPanel from './components/modules/PlaceholderPanel'
+import BasicInfoPanel from './components/modules/BasicInfoPanel'
 
 function ModulePanel({ id }: { id: ModuleId }) {
   const show = (mid: ModuleId): React.CSSProperties =>
@@ -12,7 +13,7 @@ function ModulePanel({ id }: { id: ModuleId }) {
   return (
     <>
       <div style={show('overview')}><OverviewPanel /></div>
-      <div style={show('basic-info')}><PlaceholderPanel phase="PHASE 01" title="기본정보 수집" /></div>
+      <div style={show('basic-info')}><BasicInfoPanel /></div>
       <div style={show('site-survey')}><PlaceholderPanel phase="PHASE 02" title="현장조사" /></div>
       <div style={show('input')}><PlaceholderPanel phase="PHASE 03" title="입력값 확정" /></div>
       <div style={show('stability')}><PlaceholderPanel phase="PHASE 04" title="안정성 검토" /></div>
