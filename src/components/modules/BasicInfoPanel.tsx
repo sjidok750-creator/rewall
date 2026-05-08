@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import WallSchematic, { type WallParams, type TierConfig } from './WallSchematic'
+import { usePwas } from '../../state/usePwas'
 
 const KR: React.CSSProperties = { fontFamily: 'Pretendard, sans-serif' }
 const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" }
@@ -110,10 +111,11 @@ const DEFAULT_TIER = (): TierConfig => ({ panels: 2, bermWidth: 0.5 })
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function BasicInfoPanel() {
+  const { setP01 } = usePwas()
   const [method, setMethod] = useState<WallParams['method']>('')
   const [construction, setConstruction] = useState<WallParams['construction']>('')
-  const [kds, setKds] = useState('2020')
-  const [docStatus, setDocStatus] = useState('')
+  const [kds, setKds] = useState<'2020' | '2016'>('2020')
+  const [docStatus, setDocStatus] = useState<'' | 'full' | 'drawing-only' | 'partial' | 'none'>('')
   const [stages, setStages] = useState(4)
   const [slopeAngle, setSlopeAngle] = useState(75)
   const [wallThick, setWallThick] = useState(0.25)
@@ -122,6 +124,7 @@ export default function BasicInfoPanel() {
   const [tiers, setTiers] = useState<TierConfig[]>(Array.from({ length: 4 }, DEFAULT_TIER))
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTiers(prev => {
       if (prev.length === stages) return prev
       if (stages > prev.length)
@@ -129,6 +132,20 @@ export default function BasicInfoPanel() {
       return prev.slice(0, stages)
     })
   }, [stages])
+
+  // Phase 01 → Context mirror (Phase 03 carry-over용)
+  // (내부 상태 → 외부 상태 publish — setState in effect 정당)
+  useEffect(() => {
+    const totalPanels = tiers.reduce((s, t) => s + t.panels, 0)
+    setP01({
+      method, construction, kds, docStatus,
+      stages, slopeAngle, panelHeight, wallThick, length,
+      height: totalPanels * panelHeight,
+      tierPanels: tiers.map(t => t.panels),
+      tierBerms: tiers.map(t => t.bermWidth),
+    })
+  }, [method, construction, kds, docStatus, stages, slopeAngle,
+      panelHeight, wallThick, length, tiers, setP01])
 
   const updateTier = (i: number, key: keyof TierConfig, val: number) =>
     setTiers(prev => prev.map((t, idx) => idx === i ? { ...t, [key]: val } : t))
@@ -188,10 +205,10 @@ export default function BasicInfoPanel() {
         <SectionHead num="②" title="자료 보유현황" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 10px', marginBottom: 4 }}>
           <Field label="보유 자료" style={{ gridColumn: '1 / -1' }}>
-            <Select value={docStatus} onChange={setDocStatus} options={docOptions} />
+            <Select value={docStatus} onChange={v => setDocStatus(v as typeof docStatus)} options={docOptions} />
           </Field>
           <Field label="적용 KDS" style={{ gridColumn: '1 / -1' }}>
-            <Select value={kds} onChange={setKds} options={kdsOptions} />
+            <Select value={kds} onChange={v => setKds(v as typeof kds)} options={kdsOptions} />
           </Field>
           {kds === '2016' && (
             <div style={{ gridColumn: '1 / -1', padding: '5px 8px', background: '#FFF8E7', border: '1px solid #E8C97A', borderRadius: 2, ...MONO, fontSize: 9, color: '#7A5A1A', lineHeight: 1.5 }}>

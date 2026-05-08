@@ -367,14 +367,42 @@ export interface WallParams {
 - 지반 자료: 시공 당시 보고서 활용
 - **★ 단별 레벨링 콘크리트 상태 확인** (균열·세굴·부등침하)
 
-### Phase 03 — 입력값 확정 🔲 플레이스홀더
-- 단면·배근 (도면 有/無에 따라 입력 방식 분기)
-- 재료강도: 콘크리트 fck, 철근 fy (열화감소율 반영)
-- PS 잔존력: Lift-off 실측값 또는 초기긴장력 × 손실율
-- **지반정수: γ, φ, c, Ks** ← 토압 계산 핵심
-- **앵커·네일 제원: 길이, 직경, 간격, 경사각, 그라우트 강도**
-- **기초 폭 B** ← 활동·전도·지지력 계산 핵심
-- 하중조건: 상재하중, 지하수위, 지진계수
+### Phase 03 — 입력값 확정 ✅ 구현완료
+**파일:** `src/components/modules/InputPanel.tsx`
+**라우팅:** `App.tsx` `<div style={show('input')}>` → `<InputPanel />`
+**상태 공유:** `src/state/PwasContext.tsx` + `src/state/usePwas.ts` (Phase 01·02 mirror)
+
+**레이아웃:** 좌측 입력 60% (7섹션 A~G) + 우측 KDS 라이브 사이드보드 380px (3블록)
+
+**섹션 구성 (A~G):**
+| 코드 | 제목 | Phase 04 영향 | KDS |
+|------|------|--------------|-----|
+| A | 단면·배근 | 04-C M_n, V_n | KDS 14 20 §7.2 / KDS 14 30 §4.2 |
+| B | 재료 강도 | 04-C 단면강도 | KDS 14 20 §6.4; KS F 2422 |
+| C | PS 잔존력 (Lift-off / 추정) | 04-B 패널휨, 04-C P_eff | KDS 14 30 §5.5 |
+| D | 보강재 제원 (네일·앵커) | 04-B 펀칭·휨 | KDS 11 70 15 |
+| E | 지반 정수 | 04-A Coulomb·활동·전도 | KDS 11 80 20 §4.2.1 |
+| F | 하중 조건 (상재·수위·지진) | 04-A Pa, M-O 토압 | KDS 11 80 20 §4.2.2; KDS 17 10 00 |
+| G | ★ 기초 폭 B (단별) | 04-A 활동·전도·지지력 | KDS 11 80 20 §4.4 |
+
+**주요 기능:**
+- **출처(Provenance) 뱃지** — measured/drawing/phase02/auto/estimated/empirical/none 7종, 모든 입력값 옆에 부착
+- **Phase 02 자동 이월** — 코어 fck, 부식률, Lift-off, 피복실측, 지반정수, 세굴깊이를 useEffect로 자동 채움 (사용자 확정 시 잠금)
+- **자료 분기 배너** — Phase 01 docStatus(full/drawing-only/partial/none)에 따라 상단 안내·경고
+- **단별 vs 전체 토글** — D·E·G 섹션은 'uniform' / 'per-tier' 라디오로 입력 방식 선택
+- **자동 산정값 (DerivedRow)** — A_ps, 유효깊이 d, 확정 fck, 유효 fy, ΣΔfp, T_res 확정값, B_eff, 자동 k_h
+- **지진계수 자동 매핑** — KDS 17 10 00 Z·S·I 곱셈 (자동/수동 토글)
+- **우측 KDS 라이브 보드 3블록**: ① 현재 섹션 KDS 인용 (식·해설), ② 신뢰도 게이지 (출처 가중평균), ③ Phase 04 이월 핵심값 요약
+
+**상태 관리:**
+- `Phase01Output`, `Phase02Output`, `Phase03Output` 타입은 `src/types.ts`에 정의
+- `PwasContext`에 p01/p02 보관, BasicInfoPanel·SiteSurveyPanel은 useEffect로 단방향 mirror publish
+- InputPanel은 컨텍스트에서 read-only로 받아 자동 이월에 사용
+
+**향후 추가 (TBD):**
+- 도면 無 분기 시 철근탐사 직접 입력 UI
+- ConfidenceGauge에 항목별 출처 분포 막대그래프
+- Phase 04로 Phase 03 출력 전달 (현재는 InputPanel 내부 state, Phase 04 구현 시 Context로 추가 mirror 필요)
 
 ### Phase 04 — 안정성 검토 🔲 핵심 미구현
 
@@ -545,9 +573,12 @@ rewall/
 ├── .github/workflows/
 │   └── deploy.yml            Node 22, npm ci, npm run build
 └── src/
-    ├── types.ts              ModuleId 타입
+    ├── types.ts              ModuleId / Phase01·02·03 Output / Provenance / 7섹션 타입
     ├── index.css             색상·폰트 CSS 변수
-    ├── App.tsx               3패널 레이아웃, 탭 라우팅
+    ├── App.tsx               PwasProvider + 3패널 레이아웃, 탭 라우팅
+    ├── state/
+    │   ├── PwasContext.tsx   Phase 01·02 mirror Provider (Phase 03 carry-over용)
+    │   └── usePwas.ts        usePwas() hook (Fast Refresh 분리)
     └── components/
         ├── common/
         │   └── PwasLogo.tsx  PWAS 엠블럼 SVG 컴포넌트
@@ -556,9 +587,11 @@ rewall/
         │   └── Sidebar.tsx   좌측 네비게이션
         └── modules/
             ├── OverviewPanel.tsx     검토개요 흐름도 + 공법가이드
-            ├── BasicInfoPanel.tsx    Phase 01 입력 + 모식도 연결
+            ├── BasicInfoPanel.tsx    Phase 01 입력 + 모식도 + Context mirror
             ├── WallSchematic.tsx     SVG 단면 모식도 (TierConfig 기반)
-            └── PlaceholderPanel.tsx  Phase 02~06 플레이스홀더
+            ├── SiteSurveyPanel.tsx   Phase 02 현장조사 (6섹션 A~F) + Context mirror
+            ├── InputPanel.tsx        Phase 03 입력값 확정 (7섹션 A~G + KDS 사이드보드) ★
+            └── PlaceholderPanel.tsx  Phase 04~06 플레이스홀더
 ```
 
 ### ModuleId 타입 (types.ts)
@@ -596,13 +629,20 @@ export interface WallParams {
 |------|------|------|------|
 | 1 | 검토개요 흐름도 | ✅ 완료 | 공법가이드 패널 포함 |
 | 2 | Phase 01 기본정보 + 모식도 | ✅ 완료 | 단별 테이블, 역산 H |
-| 3 | Phase 02 현장조사 입력 | 🔲 미구현 | — |
-| 4 | Phase 03 입력값 확정 | 🔲 미구현 | 기초폭 B 포함 필수 |
+| 3 | Phase 02 현장조사 입력 | ✅ 완료 | 6섹션 A~F, InfoTooltip 패턴 |
+| 4 | Phase 03 입력값 확정 | ✅ 완료 | 7섹션 A~G, ProvenanceBadge, KDS 사이드보드, 기초폭 B 포함 |
 | 5 | Phase 04-A 외적안정 계산 | 🔲 미구현 | **핵심**, 단별 독립 |
 | 6 | Phase 04-B 보강재→패널 | 🔲 미구현 | — |
 | 7 | Phase 04-C 단면 검토 | 🔲 미구현 | — |
 | 8 | Phase 05 등급 판정 | 🔲 미구현 | — |
 | 9 | Phase 06 PDF 출력 | 🔲 미구현 | — |
+
+### 13-1. Phase 03 구현 시 의사결정 (2026-05-08)
+- **상태 공유:** Lift-up 대신 Context mirror 패턴 채택 (BasicInfoPanel·SiteSurveyPanel 내부 useState 유지, useEffect로 publish). 기존 패널 변경 최소화 + 언제든 본격 store(zustand 등) 전환 가능.
+- **출처(Provenance) 시스템:** 모든 입력값 옆 7색 뱃지(measured/drawing/phase02/auto/estimated/empirical/none). 보고서 추적성·진단기술사 검토용.
+- **단별 입력 토글:** D·E·G 섹션에 'uniform' / 'per-tier' 라디오. 기본 D·E는 uniform, G는 per-tier (단별 독립 기초 모델 강조).
+- **지진계수:** KDS 17 10 00 Z·S·I 자동 매핑 + 수동 토글. 단층 인근·특수 지반은 수동 사용.
+- **KDS 미명시 사항(레벨링 콘크리트 단별 독립 기초)**: G섹션 안내문 + 면책 푸터에서 본 시스템 고유 모델임을 명시.
 
 ---
 
@@ -618,16 +658,18 @@ export interface WallParams {
 
 ## 15. 미결 사항 / 향후 검토
 
-### Phase 03 설계 시 결정 필요
-- [ ] 기초 폭 B 입력 — Phase 01 개념값 vs Phase 03 정밀값 구분
-- [ ] 단별 상재하중 q_i — 소단 폭 < 2H 조건부 적용 여부
-- [ ] 단별 보강재 종류 다를 경우 처리 (현재 전체 PSP/PPP/혼용)
-- [ ] 지반정수 단층 vs 단별 입력 구분
+### Phase 03 — 구현 완료 (해결됨)
+- [x] 기초 폭 B 입력 — G섹션 단별 입력으로 분리 (Phase 01 개념값 별도)
+- [x] 단별 보강재 종류 다를 경우 처리 — D섹션 'per-tier' 토글
+- [x] 지반정수 단층 vs 단별 입력 구분 — E섹션 'uniform/per-tier' 토글
+- [x] 지진계수 입력 방법 — F섹션 자동(Z·S·I) / 수동 토글
+- [ ] 단별 상재하중 q_i — 소단 폭 < 2H 조건부 적용 여부 (Phase 04 진입 시 결정)
 
 ### Phase 04 설계 시 결정 필요
 - [ ] Coulomb vs 시행쐐기법 선택 옵션
-- [ ] 지진계수 입력 방법 (지역별 자동 vs 수동)
-- [ ] 지하수위 반영 방식
+- [ ] M-O 토압식 적용 (Phase 03에서 k_h, k_v는 이미 입력)
+- [ ] 지하수위 반영 방식 (Phase 03에서 GWL은 이미 입력)
+- [ ] Phase 03 출력의 Phase 04 전달 방식 (Context 추가 mirror 또는 props lift)
 
 ### 기타
 - [ ] KDS 2016 vs 2020 차이점 상세 문서화 (OverviewPanel 툴팁)

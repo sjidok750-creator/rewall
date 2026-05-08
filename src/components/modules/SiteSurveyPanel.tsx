@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { usePwas } from '../../state/usePwas'
 
 const KR: React.CSSProperties = { fontFamily: 'Pretendard, sans-serif' }
 const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" }
@@ -192,6 +193,7 @@ function WarnBadge({ show, text, level = 'warn' }: { show: boolean; text: string
 // SiteSurveyPanel
 // ═══════════════════════════════════════════════════════════════════
 export default function SiteSurveyPanel() {
+  const { setP02 } = usePwas()
 
   // ── A. 외관조사 — 안전성평가 계산에 직접 반영되는 측정값 ─────────
   const [crackWidth, setCrackWidth] = useState('')       // 최대 균열폭 (mm)
@@ -226,6 +228,26 @@ export default function SiteSurveyPanel() {
   const [levelCrack, setLevelCrack] = useState('')       // 레벨링 균열폭 (mm)
   const [levelScour, setLevelScour] = useState('')       // 레벨링 세굴깊이 (mm)
   const [settlement, setSettlement] = useState('')       // 부등침하 (mm)
+
+  // Phase 02 → Context mirror (Phase 03 carry-over용)
+  // (내부 상태 → 외부 상태 publish — setState in effect 정당)
+  useEffect(() => {
+    setP02({
+      crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
+      schmidt, ultrasound, carbonation, coverDepth,
+      coreFck, designFck,
+      liftoffNail, initNail, liftoffAnchor, initAnchor,
+      gamma, phi, cohesion, groundMemo,
+      levelCrack, levelScour, settlement,
+    })
+  }, [
+    crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
+    schmidt, ultrasound, carbonation, coverDepth,
+    coreFck, designFck,
+    liftoffNail, initNail, liftoffAnchor, initAnchor,
+    gamma, phi, cohesion, groundMemo,
+    levelCrack, levelScour, settlement, setP02,
+  ])
 
   // ── 파생 계산 ────────────────────────────────────────────────────
   const fckRatio = coreFck && designFck && Number(designFck) > 0
