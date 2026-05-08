@@ -1,14 +1,18 @@
+export interface TierConfig {
+  panels: number      // 이 단의 패널 수
+  bermWidth: number   // 이 단 하부 소단 폭 (m) — 최하단은 미사용
+}
+
 export interface WallParams {
-  height: number        // 옹벽 전체 높이 H (m)
+  height: number        // 역산된 전체 높이 H (m)
   length: number        // 연장 L (m)
   stages: number        // 단수 n
   slopeAngle: number    // 비탈면 경사각 θ (°)
   wallThick: number     // 패널 두께 t (m)
   method: 'PSP' | 'PPP' | 'mixed' | ''
   construction: 'top-down' | 'bottom-up' | 'unknown' | ''
-  panelHeight: number   // 표준 패널 1장 높이 (m)
-  bermWidth: number     // 소단 폭 (m)
-  panelsPerTier: number // 단당 패널 수 (자동 계산됨)
+  panelHeight: number   // 패널 1장 높이 (m, 전 단 공통)
+  tiers: TierConfig[]   // 단별 패널 수 + 소단 폭
 }
 
 interface Props {
@@ -140,46 +144,57 @@ function Legend({ method, x, y }: { method: string; x: number; y: number }) {
 // ── 메인 컴포넌트 ──
 export default function WallSchematic({ params }: Props) {
   const { height, stages, slopeAngle, method, construction,
-          bermWidth, panelsPerTier } = params
+          panelHeight, tiers } = params
 
   const H = Math.max(1, height)
   const theta = Math.max(30, Math.min(85, slopeAngle))
   const n = Math.max(1, Math.min(12, stages))
-  const pph = Math.max(1, panelsPerTier)   // panels per tier
-  const bw = Math.max(0.1, bermWidth)      // berm width (m)
+  const ph = Math.max(0.3, panelHeight)
 
-  // px/m 스케일 — 전체 높이 기준
+  // tiers 배열 길이를 n에 맞춤 (방어)
+  const safeTiers = Array.from({ length: n }, (_, i) =>
+    tiers[i] ?? { panels: 2, bermWidth: 0.5 }
+  )
+
+  // px/m 스케일
   const pxPerM = DH / Math.min(H * 1.15, 30)
   const wallHpx = H * pxPerM
 
-  // 기준 좌표 — 최하단 단의 전면 x, 기초 바닥 y
   const botY = PAD.t + DH
   const topY = botY - wallHpx
 
-  // 단당 높이 (px)
-  const tierHpx = wallHpx / n
-  // 소단 폭 (px)
-  const bermPx = bw * pxPerM
-  // 패널 폭 (도면상 고정 — 두께 개념)
   const panelWpx = 16
-
-  // 레벨링 콘크리트(기초) — 최하단에만
   const levelH = 14
-
-  // 각 단(tier) 좌표 계산
-  // tier 0 = 최상단, tier n-1 = 최하단
-  // 최하단 전면 x
   const baseX = PAD.l + 60
-  // 각 단 전면 x: 위로 갈수록 bermPx씩 후퇴(우측)
-  const tierFrontX = (i: number) => baseX + (n - 1 - i) * bermPx
-  // 각 단 배면 x
-  const tierBackX = (i: number) => tierFrontX(i) + panelWpx
-  // 각 단 상단 y
-  const tierTopY = (i: number) => topY + i * tierHpx
-  // 각 단 하단 y
-  const tierBotY = (i: number) => tierTopY(i) + tierHpx
 
-  // 비탈면 경사선 — 최상단 배면에서 출발
+  // 누적 소단 폭 합산으로 각 단 x 계산 (tier 0=최상단, n-1=최하단)
+  // 최하단(n-1)의 frontX = baseX
+  // 단 i의 frontX = baseX + Σ bermWidth[k] for k = i..(n-2) (px)
+  const cumulativeBermPx = (i: number) => {
+    let sum = 0
+    for (let k = i; k < n - 1; k++) {
+      sum += safeTiers[k].bermWidth * pxPerM
+    }
+    return sum
+  }
+  const tierFrontX = (i: number) => baseX + cumulativeBermPx(i)
+  const tierBackX  = (i: number) => tierFrontX(i) + panelWpx
+
+  // 각 단 y — 단별 패널 수에 따른 가변 높이
+  // topY에서 아래로 쌓음
+  const tierTopYArr: number[] = []
+  const tierBotYArr: number[] = []
+  let curY = topY
+  for (let i = 0; i < n; i++) {
+    const tierH = safeTiers[i].panels * ph * pxPerM
+    tierTopYArr.push(curY)
+    tierBotYArr.push(curY + tierH)
+    curY += tierH
+  }
+  const tierTopY = (i: number) => tierTopYArr[i] ?? topY
+  const tierBotY = (i: number) => tierBotYArr[i] ?? botY
+
+  // 비탈면
   const thetaRad = (theta * Math.PI) / 180
   const slopeStartX = tierBackX(0)
   const slopeStartY = tierTopY(0)
@@ -187,7 +202,6 @@ export default function WallSchematic({ params }: Props) {
   const slopeEndX = Math.min(slopeStartX + slopeRun, W - PAD.r - 10)
   const slopeEndY = botY
 
-  // 방법 라벨
   const methodLabel = method === 'PSP' ? 'PSP — 소일네일 + PS패널'
     : method === 'PPP' ? 'PPP — 영구앵커 + PS패널'
     : method === 'mixed' ? '혼용 — 소일네일 + 영구앵커'
@@ -237,21 +251,16 @@ export default function WallSchematic({ params }: Props) {
           const fx = tierFrontX(i)
           const by = i < n - 1 ? tierBotY(i) : botY
           const isBottom = i === n - 1
-          const lh = isBottom ? levelH : Math.round(levelH * 0.55)
+          const lh = isBottom ? levelH : Math.round(levelH * 0.5)
           return (
             <g key={`level-${i}`}>
-              <rect
-                x={fx - 4} y={by - lh}
-                width={panelWpx + 8} height={lh}
+              <rect x={fx - 4} y={by - lh} width={panelWpx + 8} height={lh}
                 fill={isBottom ? '#C8C4BC' : '#D4D0C8'}
-                stroke="#3A3730" strokeWidth={isBottom ? 1.2 : 0.8}
-              />
+                stroke="#3A3730" strokeWidth={isBottom ? 1.2 : 0.7} />
               {isBottom && (
-                <text
-                  x={fx + panelWpx / 2} y={by - 3}
+                <text x={fx + panelWpx / 2} y={by - 2}
                   fontFamily="'JetBrains Mono', monospace"
-                  fontSize="7" fill="#6B6560" textAnchor="middle"
-                >레벨링</text>
+                  fontSize="7" fill="#6B6560" textAnchor="middle">레벨링</text>
               )}
             </g>
           )
@@ -259,86 +268,66 @@ export default function WallSchematic({ params }: Props) {
 
         {/* ── 단별 패널 + 소단 ── */}
         {Array.from({ length: n }, (_, i) => {
-          const fx = tierFrontX(i)
-          const bx = tierBackX(i)
-          const ty = tierTopY(i)
-          const by = i < n - 1 ? tierBotY(i) : botY - levelH  // 최하단은 레벨링 위
-
-          // 패널 각각을 수직 직사각형으로 그리기
-          const actualPanelH = (by - ty) / pph
+          const tier = safeTiers[i]
+          const pph = tier.panels                       // 이 단의 패널 수
+          const fx  = tierFrontX(i)
+          const bx  = tierBackX(i)
+          const ty  = tierTopY(i)
+          const by  = i < n - 1 ? tierBotY(i) : botY - levelH
+          const panelHpx = (by - ty) / pph             // 패널 1장 px 높이
+          const thisBermPx = tier.bermWidth * pxPerM   // 이 단 소단 폭 px
 
           return (
             <g key={i}>
-              {/* 패널들 (수직 직사각형) */}
+              {/* 패널들 */}
               {Array.from({ length: pph }, (_, j) => {
-                const py = ty + j * actualPanelH
+                const py = ty + j * panelHpx
                 return (
                   <g key={j}>
-                    <rect
-                      x={fx} y={py}
-                      width={panelWpx} height={actualPanelH}
-                      fill="#EFEDE8" stroke="#1A1915" strokeWidth="1.2"
-                    />
-                    {/* 패널 표면 음각 패턴 (가로 중심선) */}
-                    <line
-                      x1={fx + 2} y1={py + actualPanelH / 2}
-                      x2={bx - 2} y2={py + actualPanelH / 2}
-                      stroke="#D8D4CC" strokeWidth="0.5"
-                    />
+                    <rect x={fx} y={py} width={panelWpx} height={panelHpx}
+                      fill="#EFEDE8" stroke="#1A1915" strokeWidth="1.2" />
+                    <line x1={fx + 2} y1={py + panelHpx / 2}
+                      x2={bx - 2} y2={py + panelHpx / 2}
+                      stroke="#D8D4CC" strokeWidth="0.5" />
                   </g>
                 )
               })}
 
-              {/* 뒤채움재 (배면 측면 표시) */}
+              {/* 뒤채움재 */}
               {i < n - 1 && (
-                <rect
-                  x={bx} y={ty}
-                  width={bermPx * 0.6} height={by - ty}
-                  fill="#D4C8B0" opacity={0.4}
-                  stroke="none"
-                />
+                <rect x={bx} y={ty} width={thisBermPx * 0.6} height={by - ty}
+                  fill="#D4C8B0" opacity={0.4} stroke="none" />
               )}
 
-              {/* 소단 수평선 (단 경계) */}
+              {/* 소단 수평선 */}
               {i < n - 1 && (
                 <g>
-                  {/* 소단 바닥 */}
-                  <line
-                    x1={fx} y1={by}
-                    x2={tierFrontX(i + 1)} y2={by}
-                    stroke="#5A5550" strokeWidth="1.2"
-                  />
-                  {/* 소단 치수 표시 (첫 소단만) */}
-                  {i === 0 && bermPx > 15 && (
+                  <line x1={fx} y1={by} x2={tierFrontX(i + 1)} y2={by}
+                    stroke="#5A5550" strokeWidth="1.2" />
+                  {thisBermPx > 12 && (
                     <DimLine
-                      x1={tierBackX(0)} y1={tierBotY(0) + 10}
-                      x2={tierFrontX(1)} y2={tierBotY(0) + 10}
-                      label={`${bw.toFixed(1)}m`}
-                      side="bottom"
-                      fs={8}
+                      x1={tierBackX(i)} y1={by + 10}
+                      x2={tierFrontX(i + 1)} y2={by + 10}
+                      label={`${tier.bermWidth.toFixed(1)}m`}
+                      side="bottom" fs={7}
                     />
                   )}
                 </g>
               )}
 
-              {/* 단 번호 라벨 */}
-              <text
-                x={fx - 12} y={(ty + Math.min(by, botY - levelH)) / 2 + 4}
+              {/* 단 번호 */}
+              <text x={fx - 12} y={(ty + (by)) / 2 + 4}
                 fontFamily="'JetBrains Mono', monospace"
-                fontSize="9" fill="#8B857A" textAnchor="middle"
-              >{i + 1}</text>
+                fontSize="9" fill="#8B857A" textAnchor="middle">{i + 1}</text>
 
-              {/* 보강재 — 패널 1장당 1개 배치 */}
+              {/* 보강재 — 패널 1장당 1개 */}
               {method && Array.from({ length: pph }, (_, j) => {
-                const panelMidY = ty + (j + 0.5) * actualPanelH
-                // 혼용: 전체 패널 순번으로 교대 (상단=앵커, 하단=네일 패턴)
-                const globalIdx = i * pph + j
+                const panelMidY = ty + (j + 0.5) * panelHpx
+                const globalIdx = safeTiers.slice(0, i).reduce((s, t) => s + t.panels, 0) + j
                 const isAnchor = method === 'PPP' || (method === 'mixed' && globalIdx % 2 === 0)
                 const isNail   = method === 'PSP' || (method === 'mixed' && globalIdx % 2 === 1)
-                if (isAnchor)
-                  return <PermanentAnchor key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
-                if (isNail)
-                  return <SoilNail key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
+                if (isAnchor) return <PermanentAnchor key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
+                if (isNail)   return <SoilNail key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
                 return null
               })}
             </g>
@@ -353,14 +342,13 @@ export default function WallSchematic({ params }: Props) {
           side="left"
         />
 
-        {/* ── 단 높이 치수 (단 수 ≤ 6) ── */}
-        {n <= 6 && (
+        {/* ── 최하단 단 높이 치수 ── */}
+        {n <= 8 && (
           <DimLine
             x1={baseX - 16} y1={tierTopY(n - 1)}
             x2={baseX - 16} y2={tierBotY(n - 1)}
-            label={`${(H / n).toFixed(1)}m`}
-            side="left"
-            fs={8}
+            label={`${(safeTiers[n-1].panels * ph).toFixed(1)}m`}
+            side="left" fs={8}
           />
         )}
 
@@ -382,7 +370,7 @@ export default function WallSchematic({ params }: Props) {
           x={(tierFrontX(0) + tierBackX(0)) / 2} y={topY - 10}
           fontFamily="'JetBrains Mono', monospace"
           fontSize="10" fill="#8B857A" textAnchor="middle"
-        >n={n} ({pph}장/단)</text>
+        >n={n} (총 {safeTiers.reduce((s,t)=>s+t.panels,0)}장)</text>
 
         {/* ── 공법 라벨 ── */}
         <text x={PAD.l} y={PAD.t - 18}
