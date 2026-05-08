@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import WallSchematic, { type WallParams } from './WallSchematic'
 
 const labelStyle: React.CSSProperties = {
@@ -50,11 +50,7 @@ function Select({ value, onChange, options }: {
   options: { value: string; label: string }[]
 }) {
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      style={valueStyle}
-    >
+    <select value={value} onChange={e => onChange(e.target.value)} style={valueStyle}>
       {options.map(o => (
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
@@ -92,60 +88,29 @@ function NumInput({ value, onChange, min, max, step, unit }: {
   )
 }
 
-// ── 툴팁 컴포넌트 ──────────────────────────────────────────────
-function Tooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-
+// 파생값 표시 칩
+function DerivedChip({ label, value }: { label: string; value: string }) {
   return (
-    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 5 }}>
-      <span
-        ref={ref}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 14,
-          height: 14,
-          borderRadius: '50%',
-          background: 'var(--bg-sidebar)',
-          border: '1px solid var(--border-2)',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9,
-          color: 'var(--text-3)',
-          cursor: 'help',
-          verticalAlign: 'middle',
-          userSelect: 'none',
-        }}
-      >?</span>
-      {show && (
-        <div style={{
-          position: 'absolute',
-          left: 18,
-          top: -4,
-          zIndex: 100,
-          width: 260,
-          padding: '8px 10px',
-          background: '#2A2824',
-          color: '#F0EEE5',
-          borderRadius: 3,
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9.5,
-          lineHeight: 1.65,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-          whiteSpace: 'pre-line',
-          pointerEvents: 'none',
-        }}>
-          {text}
-        </div>
-      )}
-    </span>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '4px 8px',
+      background: 'var(--bg-sidebar)',
+      border: '1px solid var(--border)',
+      borderRadius: 2,
+      marginTop: 4,
+    }}>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: 'var(--text-3)' }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>
+        {value}
+      </span>
+    </div>
   )
 }
 
-// 자료보유현황 옵션
 const docOptions = [
   { value: '', label: '— 선택 —' },
   { value: 'full', label: '준공도서 + 구조계산서 보유' },
@@ -164,23 +129,29 @@ export default function BasicInfoPanel() {
   const [construction, setConstruction] = useState<WallParams['construction']>('')
   const [kds, setKds] = useState('2020')
   const [docStatus, setDocStatus] = useState('')
-  const [surchargeModel, setSurchargeModel] = useState<'independent' | 'cumulative' | 'tbd'>('tbd')
   const [height, setHeight] = useState(8)
   const [length, setLength] = useState(30)
   const [stages, setStages] = useState(4)
   const [slopeAngle, setSlopeAngle] = useState(75)
   const [wallThick, setWallThick] = useState(0.25)
+  const [panelHeight, setPanelHeight] = useState(2.0)   // 표준 PS패널 높이
+  const [bermWidth, setBermWidth] = useState(0.5)       // 소단 폭
 
-  const params: WallParams = { height, length, stages, slopeAngle, wallThick, method, construction }
+  // 파생값
+  const tierHeight = height / stages                            // 단당 실제 높이
+  const panelsPerTier = Math.max(1, Math.round(tierHeight / panelHeight))  // 단당 패널 수 (자동)
+  const actualTierHeight = panelsPerTier * panelHeight          // 실제 단 높이 (반올림 후)
+
+  const params: WallParams = {
+    height, length, stages, slopeAngle, wallThick,
+    method, construction,
+    panelHeight, bermWidth, panelsPerTier,
+  }
 
   return (
-    <div style={{
-      display: 'flex',
-      flex: 1,
-      overflow: 'hidden',
-      height: '100%',
-    }}>
-      {/* ── 좌측 입력 패널 ────────────────────── */}
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%' }}>
+
+      {/* ── 좌측 입력 ───────────────────────────── */}
       <div style={{
         width: '38%',
         minWidth: 240,
@@ -193,28 +164,16 @@ export default function BasicInfoPanel() {
         flexDirection: 'column',
       }}>
         {/* Phase 배지 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 16,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 9,
-            letterSpacing: '0.14em',
-            color: 'var(--accent)',
-            background: 'var(--accent-bg)',
-            border: '1px solid var(--accent)',
-            borderRadius: 2,
-            padding: '2px 7px',
+            fontSize: 9, letterSpacing: '0.14em',
+            color: 'var(--accent)', background: 'var(--accent-bg)',
+            border: '1px solid var(--accent)', borderRadius: 2, padding: '2px 7px',
           }}>PHASE 01</div>
-          <div style={{
-            fontFamily: 'Pretendard, sans-serif',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text-1)',
-          }}>기본정보 수집</div>
+          <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>
+            기본정보 수집
+          </div>
         </div>
 
         {/* ① 공법 분류 */}
@@ -253,104 +212,14 @@ export default function BasicInfoPanel() {
           <Select value={docStatus} onChange={setDocStatus} options={docOptions} />
         </Field>
 
-        {/* 단별 상재하중 해석 가정 */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-            단별 상재하중 가정
-            <Tooltip text={
-              `다단 기대기옹벽에서 상부 단의 하중이\n하부 단에 전달되는지 여부 선택.\n\n` +
-              `■ 단별 독립\n각 단에 독립 레벨링 기초 있어\n상부 하중이 하부로 누적되지 않음.\n→ 각 단 h 기준 단독 토압 산정\n\n` +
-              `■ 하부 누적\n소단만 있고 연속 뒤채움으로 연결.\n상부 자중이 하부 단 상재하중 q_i로 작용.\n→ FHWA 2H rule: 소단 폭 < 2×h 이면\n   상재하중 전달 가능성 높음\n\n` +
-              `■ 현장 확인 후 결정 (권장)\nPhase 02 현장조사에서 기초 형식 확인 후 선택.`
-            } />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {([
-              { value: 'independent', label: '단별 독립', desc: '각 단 독립 레벨링 기초 확인됨' },
-              { value: 'cumulative', label: '하부 누적', desc: '소단만·연속 뒤채움 — 상재하중 q_i 반영' },
-              { value: 'tbd', label: '현장 확인 후 결정', desc: 'Phase 02 조사 후 선택 (기본값)' },
-            ] as const).map(opt => (
-              <label key={opt.value} style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 7,
-                padding: '6px 8px',
-                border: `1px solid ${surchargeModel === opt.value ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius: 2,
-                background: surchargeModel === opt.value ? 'var(--accent-bg)' : 'var(--bg)',
-                cursor: 'pointer',
-              }}>
-                <input
-                  type="radio"
-                  name="surchargeModel"
-                  value={opt.value}
-                  checked={surchargeModel === opt.value}
-                  onChange={() => setSurchargeModel(opt.value)}
-                  style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
-                />
-                <div>
-                  <div style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 10,
-                    color: surchargeModel === opt.value ? 'var(--accent)' : 'var(--text-1)',
-                    fontWeight: surchargeModel === opt.value ? 600 : 400,
-                  }}>{opt.label}</div>
-                  <div style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 8.5,
-                    color: 'var(--text-3)',
-                    marginTop: 1,
-                    lineHeight: 1.4,
-                  }}>{opt.desc}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-          {surchargeModel === 'cumulative' && (
-            <div style={{
-              marginTop: 6,
-              padding: '6px 8px',
-              background: '#FFF3E0',
-              border: '1px solid #E8A940',
-              borderRadius: 2,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 8.5,
-              color: '#7A5010',
-              lineHeight: 1.55,
-            }}>
-              ⚠ 누적 가정 시 하부 단 보강재 인장력이\n증가합니다. Phase 03 입력 시 단별\n상재하중 q_i를 별도 입력해야 합니다.\n(FHWA NHI-14-007 기준 참고)
-            </div>
-          )}
-          {surchargeModel === 'tbd' && (
-            <div style={{
-              marginTop: 6,
-              padding: '6px 8px',
-              background: 'var(--bg-sidebar)',
-              border: '1px solid var(--border)',
-              borderRadius: 2,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 8.5,
-              color: 'var(--text-3)',
-              lineHeight: 1.55,
-            }}>
-              → Phase 02 현장조사에서 각 단 기초(레벨링\n콘크리트) 유무를 확인한 후 선택하세요.
-            </div>
-          )}
-        </div>
-
         <Field label="적용 KDS 버전">
           <Select value={kds} onChange={setKds} options={kdsOptions} />
           {kds === '2016' && (
             <div style={{
-              marginTop: 5,
-              padding: '5px 8px',
-              background: '#FFF8E7',
-              border: '1px solid #E8C97A',
-              borderRadius: 2,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 9,
-              color: '#7A5A1A',
-              lineHeight: 1.5,
+              marginTop: 5, padding: '5px 8px',
+              background: '#FFF8E7', border: '1px solid #E8C97A', borderRadius: 2,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+              color: '#7A5A1A', lineHeight: 1.5,
             }}>
               ※ KDS 2016 → 2020 주요변경:<br />
               · 활동·전도 FS 기준 통일 적용<br />
@@ -364,7 +233,7 @@ export default function BasicInfoPanel() {
         <div style={sectionHeadStyle}>③ 옹벽 제원</div>
 
         <Field label="옹벽 높이 H">
-          <NumInput value={height} onChange={setHeight} min={1} max={20} step={0.5} unit="m" />
+          <NumInput value={height} onChange={setHeight} min={1} max={30} step={0.5} unit="m" />
         </Field>
 
         <Field label="연장 L">
@@ -379,99 +248,98 @@ export default function BasicInfoPanel() {
           <NumInput value={slopeAngle} onChange={setSlopeAngle} min={30} max={85} step={1} unit="°" />
         </Field>
 
+        {/* ④ 패널 제원 */}
+        <div style={sectionHeadStyle}>④ 패널 제원 (개념)</div>
+
+        <Field label="표준 패널 높이">
+          <NumInput value={panelHeight} onChange={setPanelHeight} min={0.5} max={4} step={0.1} unit="m" />
+        </Field>
+
+        <Field label="소단 폭 (berm)">
+          <NumInput value={bermWidth} onChange={setBermWidth} min={0.2} max={2.0} step={0.1} unit="m" />
+        </Field>
+
         <Field label="패널 두께 t">
           <NumInput value={wallThick} onChange={setWallThick} min={0.1} max={0.5} step={0.01} unit="m" />
         </Field>
 
-        {/* 하단 면책 */}
+        {/* 파생값 표시 */}
+        <div style={{ marginTop: 2 }}>
+          <DerivedChip label="단당 패널 수 (자동 계산)" value={`${panelsPerTier} 장/단`} />
+          <DerivedChip label="단당 실 높이" value={`${actualTierHeight.toFixed(1)} m`} />
+          {Math.abs(actualTierHeight - tierHeight) > 0.15 && (
+            <div style={{
+              marginTop: 4, padding: '4px 8px',
+              background: '#FFF8E7', border: '1px solid #E8C97A', borderRadius: 2,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, color: '#7A5A1A',
+            }}>
+              ※ H÷n÷패널높이 반올림으로 실 높이({actualTierHeight.toFixed(1)}m)가
+              설계 단 높이({tierHeight.toFixed(1)}m)와 차이 있음
+            </div>
+          )}
+        </div>
+
+        {/* 면책 */}
         <div style={{
-          marginTop: 'auto',
-          paddingTop: 16,
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 8,
-          color: 'var(--text-3)',
-          lineHeight: 1.6,
+          marginTop: 'auto', paddingTop: 16,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+          color: 'var(--text-3)', lineHeight: 1.6,
         }}>
-          Phase 01 입력값은 개념도 수준의 모식도에만 반영됩니다.<br />
-          상세 단면은 Phase 03에서 확정합니다.
+          Phase 01 입력값은 개념 모식도에만 반영됩니다.<br />
+          상세 단면·기초 형식은 Phase 03에서 확정합니다.
         </div>
       </div>
 
-      {/* ── 우측 모식도 패널 ───────────────────── */}
+      {/* ── 우측 모식도 ─────────────────────────── */}
       <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        background: 'var(--bg)',
-        padding: '20px 24px',
+        flex: 1, display: 'flex', flexDirection: 'column',
+        overflow: 'hidden', background: 'var(--bg)', padding: '20px 24px',
       }}>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9,
-          letterSpacing: '0.12em',
-          color: 'var(--text-3)',
-          textTransform: 'uppercase',
-          marginBottom: 12,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+          letterSpacing: '0.12em', color: 'var(--text-3)',
+          textTransform: 'uppercase', marginBottom: 12,
         }}>
           개념 모식도 — Conceptual Schematic
         </div>
 
         <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'center',
-          minHeight: 0,
-          overflow: 'hidden',
+          flex: 1, display: 'flex', alignItems: 'stretch',
+          justifyContent: 'center', minHeight: 0, overflow: 'hidden',
         }}>
           <div style={{ width: '100%', display: 'flex', alignItems: 'center' }}>
             <WallSchematic params={params} />
           </div>
         </div>
 
-        {/* 하단 입력값 요약 바 */}
+        {/* 하단 요약 바 */}
         <div style={{
-          display: 'flex',
-          gap: 0,
-          borderTop: '1px solid var(--border)',
-          paddingTop: 12,
-          flexWrap: 'wrap',
-          rowGap: 6,
+          display: 'flex', gap: 0,
+          borderTop: '1px solid var(--border)', paddingTop: 12,
+          flexWrap: 'wrap', rowGap: 6,
         }}>
           {[
             { label: 'H', value: `${height.toFixed(1)} m` },
             { label: 'L', value: `${length.toFixed(0)} m` },
             { label: 'n', value: `${stages} 단` },
+            { label: '단/패널', value: `${panelsPerTier} 장` },
+            { label: 'berm', value: `${bermWidth.toFixed(1)} m` },
             { label: 'θ', value: `${slopeAngle}°` },
-            { label: 't', value: `${wallThick.toFixed(2)} m` },
             { label: '공법', value: method || '미선택' },
             { label: '시공', value: construction === 'top-down' ? 'Top-down' : construction === 'bottom-up' ? 'Bottom-up' : construction === 'unknown' ? '불명' : '미선택' },
           ].map(item => (
             <div key={item.label} style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              flex: '1 0 60px',
-              padding: '4px 8px',
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 2,
-              marginRight: 6,
-              marginBottom: 2,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              flex: '1 0 55px', padding: '4px 8px',
+              background: 'var(--bg-panel)', border: '1px solid var(--border)',
+              borderRadius: 2, marginRight: 6, marginBottom: 2,
             }}>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 8,
-                color: 'var(--text-3)',
-                letterSpacing: '0.1em',
-              }}>{item.label}</div>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 11,
-                color: 'var(--text-1)',
-                fontWeight: 600,
-              }}>{item.value}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, color: 'var(--text-3)', letterSpacing: '0.1em' }}>
+                {item.label}
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--text-1)', fontWeight: 600 }}>
+                {item.value}
+              </div>
             </div>
           ))}
         </div>

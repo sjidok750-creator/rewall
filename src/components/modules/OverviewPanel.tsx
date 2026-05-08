@@ -123,7 +123,6 @@ const PHASES: FlowPhase[] = [
         label: 'A. 외적 안정  [KDS 11 80 20]',
         subs: [
           '토압 산정 — Coulomb 주동토압 (지진: Mononobe-Okabe)',
-          '단별 상재하중 q_i — 해석 가정에 따라 선택 적용 (Phase 01 설정)',
           '활동 검토 — FS ≥ 1.5 (지진 시 1.1)',
           '전도 검토 — FS ≥ 1.5 (지진 시 1.1)',
           '지지력 검토 — FS ≥ 2.5 (지진 시 2.0)',
