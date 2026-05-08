@@ -35,11 +35,11 @@ export default function Sidebar({ active, onSelect }: SidebarProps) {
     }}>
       <div style={{
         padding: '10px 8px 4px',
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 9,
-        letterSpacing: '0.14em',
+        fontFamily: 'Pretendard, sans-serif',
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: '0.04em',
         color: 'var(--text-3)',
-        textTransform: 'uppercase',
       }}>
         PSP / PPP 옹벽
       </div>
@@ -81,8 +81,9 @@ export default function Sidebar({ active, onSelect }: SidebarProps) {
               <span style={{ minWidth: 18 }} />
             )}
             <span style={{
-              fontSize: 12.5,
-              fontWeight: isActive ? 500 : 400,
+              fontFamily: 'Pretendard, sans-serif',
+              fontSize: 13,
+              fontWeight: isActive ? 700 : 500,
               color: isActive ? 'var(--text-1)' : 'var(--text-2)',
               lineHeight: 1.3,
             }}>

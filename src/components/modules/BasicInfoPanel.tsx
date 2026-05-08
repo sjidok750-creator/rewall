@@ -2,11 +2,11 @@ import { useState } from 'react'
 import WallSchematic, { type WallParams } from './WallSchematic'
 
 const labelStyle: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: 10,
-  letterSpacing: '0.08em',
+  fontFamily: 'Pretendard, sans-serif',
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.01em',
   color: 'var(--text-3)',
-  textTransform: 'uppercase' as const,
   marginBottom: 3,
 }
 
@@ -24,11 +24,11 @@ const valueStyle: React.CSSProperties = {
 }
 
 const sectionHeadStyle: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: 9,
-  letterSpacing: '0.15em',
+  fontFamily: 'Pretendard, sans-serif',
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.04em',
   color: 'var(--text-3)',
-  textTransform: 'uppercase' as const,
   borderBottom: '1px solid var(--border)',
   paddingBottom: 5,
   marginBottom: 10,
@@ -101,10 +101,10 @@ function DerivedChip({ label, value }: { label: string; value: string }) {
       borderRadius: 2,
       marginTop: 4,
     }}>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: 'var(--text-3)' }}>
+      <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, color: 'var(--text-3)' }}>
         {label}
       </span>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
         {value}
       </span>
     </div>
@@ -171,7 +171,7 @@ export default function BasicInfoPanel() {
             color: 'var(--accent)', background: 'var(--accent-bg)',
             border: '1px solid var(--accent)', borderRadius: 2, padding: '2px 7px',
           }}>PHASE 01</div>
-          <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>
+          <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
             기본정보 수집
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function BasicInfoPanel() {
         {/* 면책 */}
         <div style={{
           marginTop: 'auto', paddingTop: 16,
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 8,
+          fontFamily: 'Pretendard, sans-serif', fontSize: 11,
           color: 'var(--text-3)', lineHeight: 1.6,
         }}>
           Phase 01 입력값은 개념 모식도에만 반영됩니다.<br />
@@ -296,9 +296,9 @@ export default function BasicInfoPanel() {
         overflow: 'hidden', background: 'var(--bg)', padding: '20px 24px',
       }}>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-          letterSpacing: '0.12em', color: 'var(--text-3)',
-          textTransform: 'uppercase', marginBottom: 12,
+          fontFamily: 'Pretendard, sans-serif', fontSize: 11,
+          fontWeight: 600, color: 'var(--text-3)',
+          marginBottom: 12,
         }}>
           개념 모식도 — Conceptual Schematic
         </div>
@@ -334,7 +334,7 @@ export default function BasicInfoPanel() {
               background: 'var(--bg-panel)', border: '1px solid var(--border)',
               borderRadius: 2, marginRight: 6, marginBottom: 2,
             }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 8, color: 'var(--text-3)', letterSpacing: '0.1em' }}>
+              <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>
                 {item.label}
               </div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--text-1)', fontWeight: 600 }}>

@@ -233,11 +233,10 @@ function MethodGuidePanel() {
         background: 'var(--bg-sidebar)',
       }}>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9,
-          letterSpacing: '0.12em',
+          fontFamily: 'Pretendard, sans-serif',
+          fontSize: 11,
+          fontWeight: 600,
           color: 'var(--text-3)',
-          textTransform: 'uppercase' as const,
         }}>공법 선택 기준 — 현장 적용 패턴</span>
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
@@ -285,7 +284,7 @@ function MethodGuidePanel() {
                   ))}
                 </span>
               </div>
-              <div style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.sub}</div>
+              <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.sub}</div>
             </div>
           ))}
         </div>
@@ -298,10 +297,10 @@ function MethodGuidePanel() {
           borderRadius: 2,
         }}>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 9,
+            fontFamily: 'Pretendard, sans-serif',
+            fontSize: 11,
+            fontWeight: 700,
             color: 'var(--accent)',
-            letterSpacing: '0.1em',
             marginBottom: 5,
           }}>혼용 공법 배치 원칙 (현장 多수)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -318,13 +317,13 @@ function MethodGuidePanel() {
                 lineHeight: 1.4,
               }}>
                 <span style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9,
+                  fontFamily: 'Pretendard, sans-serif',
+                  fontSize: 11,
+                  fontWeight: 600,
                   color: 'var(--text-3)',
-                  paddingTop: 1,
                 }}>{row.pos}</span>
-                <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{row.method}</span>
-                <span style={{ color: 'var(--text-2)' }}>{row.reason}</span>
+                <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>{row.method}</span>
+                <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, color: 'var(--text-2)' }}>{row.reason}</span>
               </div>
             ))}
           </div>
@@ -338,12 +337,12 @@ function MethodGuidePanel() {
           borderRadius: 2,
         }}>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 9,
+            fontFamily: 'Pretendard, sans-serif',
+            fontSize: 11,
+            fontWeight: 700,
             color: 'var(--text-3)',
-            letterSpacing: '0.1em',
             marginBottom: 5,
-          }}>구조 해석 단위 (단별 독립 기초 기준)</div>
+          }}>구조 해석 단위</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {[
               { item: '외적안정 (활동·전도·지지력)', unit: '해석 가정 선택', note: '단별 기초 유무에 따라 독립/누적 중 선택 (Phase 02 현장확인)' },
@@ -359,13 +358,9 @@ function MethodGuidePanel() {
                 borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
                 paddingBottom: i < 2 ? 3 : 0,
               }}>
-                <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{row.item}</span>
-                <span style={{
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9,
-                  color: '#4A7FA5',
-                }}>{row.unit}</span>
-                <span style={{ color: 'var(--text-3)' }}>{row.note}</span>
+                <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, fontWeight: 600, color: 'var(--text-1)' }}>{row.item}</span>
+                <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, fontWeight: 700, color: '#4A7FA5' }}>{row.unit}</span>
+                <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 10, color: 'var(--text-3)' }}>{row.note}</span>
               </div>
             ))}
           </div>
@@ -428,7 +423,7 @@ function PhaseCard({ phase }: { phase: FlowPhase }) {
           {phase.phase ? `PHASE ${phase.phase}` : '개요'}
         </span>
         <div>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.2 }}>
+          <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.2 }}>
             {phase.title}
           </div>
           <div style={{
@@ -468,13 +463,14 @@ function PhaseCard({ phase }: { phase: FlowPhase }) {
         {phase.items.map((item, i) => (
           <div key={i}>
             <div style={{
-              fontSize: 11.5,
-              fontWeight: 500,
+              fontFamily: 'Pretendard, sans-serif',
+              fontSize: 12,
+              fontWeight: 600,
               color: 'var(--text-1)',
               display: 'flex',
               alignItems: 'flex-start',
               gap: 6,
-              lineHeight: 1.35,
+              lineHeight: 1.4,
             }}>
               <span style={{
                 color: phase.color,
@@ -488,11 +484,12 @@ function PhaseCard({ phase }: { phase: FlowPhase }) {
               <div style={{ marginLeft: 16, marginTop: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {item.subs.map((s, j) => (
                   <div key={j} style={{
-                    fontSize: 11,
+                    fontFamily: 'Pretendard, sans-serif',
+                    fontSize: 11.5,
                     color: 'var(--text-2)',
                     display: 'flex',
                     gap: 5,
-                    lineHeight: 1.4,
+                    lineHeight: 1.5,
                   }}>
                     <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>·</span>
                     {s}
@@ -527,7 +524,9 @@ function PhaseCard({ phase }: { phase: FlowPhase }) {
           </div>
           {phase.branches.map((b, i) => (
             <div key={i} style={{
-              fontSize: 10.5,
+              fontFamily: 'Pretendard, sans-serif',
+              fontSize: 11,
+              fontWeight: 500,
               color: 'var(--warn)',
               display: 'flex',
               gap: 5,
@@ -581,7 +580,7 @@ export default function OverviewPanel() {
         flexShrink: 0,
       }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>
+          <div style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
             PSP / PPP 옹벽 — 안전성·안정성 평가 흐름도
           </div>
           <div style={{
@@ -608,8 +607,8 @@ export default function OverviewPanel() {
               alignItems: 'center',
               gap: 6,
             }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>{t.label}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{t.desc}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>{t.label}</span>
+              <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, color: 'var(--text-3)' }}>{t.desc}</span>
             </div>
           ))}
         </div>
@@ -626,9 +625,10 @@ export default function OverviewPanel() {
           borderRadius: 3,
           padding: '10px 14px',
           marginBottom: 20,
-          fontSize: 11.5,
+          fontFamily: 'Pretendard, sans-serif',
+          fontSize: 12,
           color: 'var(--text-2)',
-          lineHeight: 1.6,
+          lineHeight: 1.7,
         }}>
           본 프로그램은 <strong style={{ color: 'var(--text-1)' }}>기존 PSP/PPP 옹벽의 현재 상태</strong>를 평가하는 도구입니다.
           현장조사·실측값을 입력하고 KDS 기준에 따라 안정성을 검토합니다.
@@ -661,9 +661,11 @@ export default function OverviewPanel() {
           background: 'var(--warn-bg)',
           border: '1px solid rgba(184,101,10,0.25)',
           borderRadius: 3,
-          fontSize: 11,
+          fontFamily: 'Pretendard, sans-serif',
+          fontSize: 12,
+          fontWeight: 500,
           color: 'var(--warn)',
-          lineHeight: 1.6,
+          lineHeight: 1.7,
         }}>
           ⚠️ 본 결과는 KDS 일반 규정 기반 검토이며, PSP/PPP 특허 공법 고유 가정과 다를 수 있습니다.
           최종 안전등급 판정은 관련 분야 진단기술사의 검토·확인이 필요합니다.
