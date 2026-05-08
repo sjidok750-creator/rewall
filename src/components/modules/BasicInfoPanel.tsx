@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import WallSchematic, { type WallParams } from './WallSchematic'
 
 const labelStyle: React.CSSProperties = {
@@ -92,6 +92,59 @@ function NumInput({ value, onChange, min, max, step, unit }: {
   )
 }
 
+// ── 툴팁 컴포넌트 ──────────────────────────────────────────────
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 5 }}>
+      <span
+        ref={ref}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 14,
+          height: 14,
+          borderRadius: '50%',
+          background: 'var(--bg-sidebar)',
+          border: '1px solid var(--border-2)',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9,
+          color: 'var(--text-3)',
+          cursor: 'help',
+          verticalAlign: 'middle',
+          userSelect: 'none',
+        }}
+      >?</span>
+      {show && (
+        <div style={{
+          position: 'absolute',
+          left: 18,
+          top: -4,
+          zIndex: 100,
+          width: 260,
+          padding: '8px 10px',
+          background: '#2A2824',
+          color: '#F0EEE5',
+          borderRadius: 3,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9.5,
+          lineHeight: 1.65,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          whiteSpace: 'pre-line',
+          pointerEvents: 'none',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  )
+}
+
 // 자료보유현황 옵션
 const docOptions = [
   { value: '', label: '— 선택 —' },
@@ -111,6 +164,7 @@ export default function BasicInfoPanel() {
   const [construction, setConstruction] = useState<WallParams['construction']>('')
   const [kds, setKds] = useState('2020')
   const [docStatus, setDocStatus] = useState('')
+  const [surchargeModel, setSurchargeModel] = useState<'independent' | 'cumulative' | 'tbd'>('tbd')
   const [height, setHeight] = useState(8)
   const [length, setLength] = useState(30)
   const [stages, setStages] = useState(4)
@@ -198,6 +252,91 @@ export default function BasicInfoPanel() {
         <Field label="보유 자료">
           <Select value={docStatus} onChange={setDocStatus} options={docOptions} />
         </Field>
+
+        {/* 단별 상재하중 해석 가정 */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+            단별 상재하중 가정
+            <Tooltip text={
+              `다단 기대기옹벽에서 상부 단의 하중이\n하부 단에 전달되는지 여부 선택.\n\n` +
+              `■ 단별 독립\n각 단에 독립 레벨링 기초 있어\n상부 하중이 하부로 누적되지 않음.\n→ 각 단 h 기준 단독 토압 산정\n\n` +
+              `■ 하부 누적\n소단만 있고 연속 뒤채움으로 연결.\n상부 자중이 하부 단 상재하중 q_i로 작용.\n→ FHWA 2H rule: 소단 폭 < 2×h 이면\n   상재하중 전달 가능성 높음\n\n` +
+              `■ 현장 확인 후 결정 (권장)\nPhase 02 현장조사에서 기초 형식 확인 후 선택.`
+            } />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {([
+              { value: 'independent', label: '단별 독립', desc: '각 단 독립 레벨링 기초 확인됨' },
+              { value: 'cumulative', label: '하부 누적', desc: '소단만·연속 뒤채움 — 상재하중 q_i 반영' },
+              { value: 'tbd', label: '현장 확인 후 결정', desc: 'Phase 02 조사 후 선택 (기본값)' },
+            ] as const).map(opt => (
+              <label key={opt.value} style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 7,
+                padding: '6px 8px',
+                border: `1px solid ${surchargeModel === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 2,
+                background: surchargeModel === opt.value ? 'var(--accent-bg)' : 'var(--bg)',
+                cursor: 'pointer',
+              }}>
+                <input
+                  type="radio"
+                  name="surchargeModel"
+                  value={opt.value}
+                  checked={surchargeModel === opt.value}
+                  onChange={() => setSurchargeModel(opt.value)}
+                  style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: surchargeModel === opt.value ? 'var(--accent)' : 'var(--text-1)',
+                    fontWeight: surchargeModel === opt.value ? 600 : 400,
+                  }}>{opt.label}</div>
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 8.5,
+                    color: 'var(--text-3)',
+                    marginTop: 1,
+                    lineHeight: 1.4,
+                  }}>{opt.desc}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          {surchargeModel === 'cumulative' && (
+            <div style={{
+              marginTop: 6,
+              padding: '6px 8px',
+              background: '#FFF3E0',
+              border: '1px solid #E8A940',
+              borderRadius: 2,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 8.5,
+              color: '#7A5010',
+              lineHeight: 1.55,
+            }}>
+              ⚠ 누적 가정 시 하부 단 보강재 인장력이\n증가합니다. Phase 03 입력 시 단별\n상재하중 q_i를 별도 입력해야 합니다.\n(FHWA NHI-14-007 기준 참고)
+            </div>
+          )}
+          {surchargeModel === 'tbd' && (
+            <div style={{
+              marginTop: 6,
+              padding: '6px 8px',
+              background: 'var(--bg-sidebar)',
+              border: '1px solid var(--border)',
+              borderRadius: 2,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 8.5,
+              color: 'var(--text-3)',
+              lineHeight: 1.55,
+            }}>
+              → Phase 02 현장조사에서 각 단 기초(레벨링\n콘크리트) 유무를 확인한 후 선택하세요.
+            </div>
+          )}
+        </div>
 
         <Field label="적용 KDS 버전">
           <Select value={kds} onChange={setKds} options={kdsOptions} />

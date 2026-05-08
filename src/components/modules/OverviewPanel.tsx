@@ -66,8 +66,17 @@ const PHASES: FlowPhase[] = [
         label: '지반 자료',
         subs: ['시공 당시 지반조사보고서 활용', '없음 → 문헌값 + 민감도 분석'],
       },
+      {
+        label: '단별 기초 형식 확인 ★',
+        subs: [
+          '각 단 독립 레벨링 콘크리트 유무 확인',
+          '독립기초 有 → 단별 독립 해석 가능',
+          '독립기초 無(연속 뒤채움만) → 하부 단에 상재하중 누적 가정 필요',
+          '→ Phase 01 해석 가정 선택에 반영',
+        ],
+      },
     ],
-    branches: ['Lift-off 실시 여부 → Phase 3 잔존인장력 입력 분기', '도면 有/無 → Phase 3 단면 입력 분기'],
+    branches: ['Lift-off 실시 여부 → Phase 3 잔존인장력 입력 분기', '도면 有/無 → Phase 3 단면 입력 분기', '단별 기초 형식 → Phase 01 상재하중 가정 분기'],
   },
   {
     id: 'input',
@@ -114,6 +123,7 @@ const PHASES: FlowPhase[] = [
         label: 'A. 외적 안정  [KDS 11 80 20]',
         subs: [
           '토압 산정 — Coulomb 주동토압 (지진: Mononobe-Okabe)',
+          '단별 상재하중 q_i — 해석 가정에 따라 선택 적용 (Phase 01 설정)',
           '활동 검토 — FS ≥ 1.5 (지진 시 1.1)',
           '전도 검토 — FS ≥ 1.5 (지진 시 1.1)',
           '지지력 검토 — FS ≥ 2.5 (지진 시 2.0)',
@@ -337,8 +347,8 @@ function MethodGuidePanel() {
           }}>구조 해석 단위 (단별 독립 기초 기준)</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {[
-              { item: '외적안정 (활동·전도·지지력)', unit: '단별 독립 검토', note: '각 단이 자체 기초에서 저항' },
-              { item: '보강재 → 패널 전달', unit: '단별 독립 검토', note: '각 단 하중을 자기 보강재가 분담' },
+              { item: '외적안정 (활동·전도·지지력)', unit: '해석 가정 선택', note: '단별 기초 유무에 따라 독립/누적 중 선택 (Phase 02 현장확인)' },
+              { item: '보강재 → 패널 전달', unit: '단별 독립 검토', note: '수평 토압은 각 단 보강재가 독립 저항 (방향 무관)' },
               { item: '전체안정 (원호활동)', unit: '전 구간 통합', note: 'SLOPE/W 등 외부 프로그램 — 다단 전체 관통' },
             ].map((row, i) => (
               <div key={i} style={{
