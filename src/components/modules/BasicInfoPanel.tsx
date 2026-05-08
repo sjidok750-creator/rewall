@@ -281,11 +281,12 @@ export default function BasicInfoPanel() {
         <div style={{
           flex: 1,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'stretch',
           justifyContent: 'center',
           minHeight: 0,
+          overflow: 'hidden',
         }}>
-          <div style={{ width: '100%', maxWidth: 560 }}>
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center' }}>
             <WallSchematic params={params} />
           </div>
         </div>
