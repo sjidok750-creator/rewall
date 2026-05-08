@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+
+:root {
+  --ink:        #1A1915;
+  --warm:       #262624;
+  --clay:       #D97757;
+  --clay-2:     #BF6E4A;
+  --cream:      #F0EEE5;
+  --paper:      #FAF9F5;
+  --muted:      #8B857A;
+  --line:       #3A3936;
+
+  --bg-outer:   #ECEAE3;
+  --bg:         #F5F3EE;
+  --bg-panel:   #FDFCF9;
+  --bg-sidebar: #EFEDE7;
+  --border:     #D8D4CC;
+  --border-2:   #C4BFB5;
+  --text-1:     #1A1915;
+  --text-2:     #4A4740;
+  --text-3:     #8B857A;
+
+  --accent:     #D97757;
+  --accent-2:   #BF6E4A;
+  --accent-bg:  #FDF3EE;
+
+  --ok:         #2A7A4A;
+  --ok-bg:      #EDF7F1;
+  --warn:       #B8650A;
+  --warn-bg:    #FEF6EA;
+  --fail:       #C0392B;
+  --fail-bg:    #FDECEA;
+
+  --app-max-w:  1640px;
+  --sidebar-w:  224px;
+  --header-h:   48px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Pretendard', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-1);
+  background: var(--bg-outer);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono, code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.fade-in {
+  animation: fadeIn 0.12s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
