@@ -165,7 +165,6 @@ export default function WallSchematic({ params }: Props) {
 
   // 레벨링 콘크리트(기초) — 최하단에만
   const levelH = 14
-  const levelW = panelWpx + 24
 
   // 각 단(tier) 좌표 계산
   // tier 0 = 최상단, tier n-1 = 최하단
@@ -233,17 +232,30 @@ export default function WallSchematic({ params }: Props) {
         <line x1={slopeStartX} y1={slopeStartY} x2={slopeEndX} y2={slopeEndY}
           stroke="#3A3730" strokeWidth="1.2" strokeDasharray="10 4" />
 
-        {/* ── 레벨링 콘크리트 (기초, 최하단만) ── */}
-        <rect
-          x={tierFrontX(n - 1) - 6} y={botY - levelH}
-          width={levelW} height={levelH}
-          fill="#C8C4BC" stroke="#3A3730" strokeWidth="1.2"
-        />
-        <text
-          x={tierFrontX(n - 1) + levelW / 2 - 6} y={botY - 3}
-          fontFamily="'JetBrains Mono', monospace"
-          fontSize="7.5" fill="#6B6560" textAnchor="middle"
-        >레벨링</text>
+        {/* ── 레벨링 콘크리트 — 단별 독립 기초 ── */}
+        {Array.from({ length: n }, (_, i) => {
+          const fx = tierFrontX(i)
+          const by = i < n - 1 ? tierBotY(i) : botY
+          const isBottom = i === n - 1
+          const lh = isBottom ? levelH : Math.round(levelH * 0.55)
+          return (
+            <g key={`level-${i}`}>
+              <rect
+                x={fx - 4} y={by - lh}
+                width={panelWpx + 8} height={lh}
+                fill={isBottom ? '#C8C4BC' : '#D4D0C8'}
+                stroke="#3A3730" strokeWidth={isBottom ? 1.2 : 0.8}
+              />
+              {isBottom && (
+                <text
+                  x={fx + panelWpx / 2} y={by - 3}
+                  fontFamily="'JetBrains Mono', monospace"
+                  fontSize="7" fill="#6B6560" textAnchor="middle"
+                >레벨링</text>
+              )}
+            </g>
+          )
+        })}
 
         {/* ── 단별 패널 + 소단 ── */}
         {Array.from({ length: n }, (_, i) => {
@@ -316,17 +328,19 @@ export default function WallSchematic({ params }: Props) {
                 fontSize="9" fill="#8B857A" textAnchor="middle"
               >{i + 1}</text>
 
-              {/* 보강재 — 단 중앙 높이에 배치 */}
-              {method && (() => {
-                const midY = (ty + Math.min(by, botY - levelH)) / 2
-                const isAnchor = method === 'PPP' || (method === 'mixed' && i % 2 === 1)
-                const isNail = method === 'PSP' || (method === 'mixed' && i % 2 === 0)
+              {/* 보강재 — 패널 1장당 1개 배치 */}
+              {method && Array.from({ length: pph }, (_, j) => {
+                const panelMidY = ty + (j + 0.5) * actualPanelH
+                // 혼용: 전체 패널 순번으로 교대 (상단=앵커, 하단=네일 패턴)
+                const globalIdx = i * pph + j
+                const isAnchor = method === 'PPP' || (method === 'mixed' && globalIdx % 2 === 0)
+                const isNail   = method === 'PSP' || (method === 'mixed' && globalIdx % 2 === 1)
                 if (isAnchor)
-                  return <PermanentAnchor x={bx} y={midY} wallH={H} pxPerM={pxPerM} />
+                  return <PermanentAnchor key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
                 if (isNail)
-                  return <SoilNail x={bx} y={midY} wallH={H} pxPerM={pxPerM} />
+                  return <SoilNail key={j} x={bx} y={panelMidY} wallH={H} pxPerM={pxPerM} />
                 return null
-              })()}
+              })}
             </g>
           )
         })}

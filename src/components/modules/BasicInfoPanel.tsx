@@ -134,7 +134,7 @@ export default function BasicInfoPanel() {
   const [stages, setStages] = useState(4)
   const [slopeAngle, setSlopeAngle] = useState(75)
   const [wallThick, setWallThick] = useState(0.25)
-  const [panelHeight, setPanelHeight] = useState(2.0)   // 표준 PS패널 높이
+  const [panelHeight, setPanelHeight] = useState(1.0)   // 표준 PS패널 높이 (H=8, n=4 → 2장/단)
   const [bermWidth, setBermWidth] = useState(0.5)       // 소단 폭
 
   // 파생값
