@@ -7,6 +7,7 @@ interface FlowPhase {
   items: { label: string; subs?: string[] }[]
   kds?: string[]
   branches?: string[]
+  methodGuide?: boolean  // Phase 01 공법분류 가이드 패널 표시 여부
 }
 
 const PHASES: FlowPhase[] = [
@@ -17,13 +18,14 @@ const PHASES: FlowPhase[] = [
     titleEn: 'Basic Information',
     color: '#4A7FA5',
     items: [
-      { label: '공법 분류', subs: ['PSP — 소일네일 + PS패널', 'PPP — 영구앵커 + PS패널', '혼용 — 구간별 네일+앵커 병행'] },
+      { label: '공법 분류', subs: ['PSP — 소일네일 + PS패널', 'PPP — 영구앵커 + PS패널', '혼용 — 구간별 네일+앵커 병행 (현장 多수)'] },
       { label: '자료 보유 현황', subs: ['설계도면·구조계산서 有 → 설계값 기준', '없음 → 추정값 + 민감도 분석 필수'] },
       { label: '적용 KDS 버전 (시공 시기 기준)', subs: ['2016 이전: 구 기준 적용', '2020 이후: KDS 11 80 20'] },
       { label: '시공방법 확인', subs: ['Top-down (상부→하부 굴착)', 'Bottom-up (기초→상향 시공)'] },
       { label: '옹벽 제원', subs: ['연장 / 높이 / 단수 / 경사각'] },
     ],
     kds: ['KDS 11 80 20'],
+    methodGuide: true,
   },
   {
     id: 'site-survey',
@@ -201,6 +203,193 @@ const PHASES: FlowPhase[] = [
   },
 ]
 
+// ── 공법 분류 가이드 패널 ─────────────────────────────────────────
+function MethodGuidePanel() {
+  return (
+    <div style={{
+      marginTop: 10,
+      border: '1px solid var(--border)',
+      borderLeft: '3px solid #4A7FA5',
+      borderRadius: 2,
+      background: 'var(--bg)',
+      overflow: 'hidden',
+    }}>
+      {/* 헤더 */}
+      <div style={{
+        padding: '6px 12px',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: 'var(--bg-sidebar)',
+      }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9,
+          letterSpacing: '0.12em',
+          color: 'var(--text-3)',
+          textTransform: 'uppercase' as const,
+        }}>공법 선택 기준 — 현장 적용 패턴</span>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 8,
+          color: 'var(--text-3)',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          padding: '1px 5px',
+          borderRadius: 2,
+        }}>KDS 11 70 15 · KDS 11 80 20 · FHWA NHI-14-007</span>
+      </div>
+
+      {/* 공법 비교 표 */}
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {/* 빈도 요약 */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { label: '혼용', sub: '상부 네일 + 하부 앵커', freq: 5, color: '#D97757' },
+            { label: 'PSP', sub: 'H ≤ 6m, 지반 양호', freq: 3, color: '#4A7FA5' },
+            { label: 'PPP', sub: '지반 불량·중요 구조물 배면', freq: 2, color: '#6B7FA5' },
+          ].map(item => (
+            <div key={item.label} style={{
+              flex: 1,
+              padding: '8px 10px',
+              background: 'var(--bg-panel)',
+              border: `1px solid ${item.color}40`,
+              borderTop: `2px solid ${item.color}`,
+              borderRadius: 2,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: item.color,
+                }}>{item.label}</span>
+                <span style={{ display: 'flex', gap: 2 }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={i} style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: i < item.freq ? item.color : 'var(--border)',
+                      display: 'inline-block',
+                    }} />
+                  ))}
+                </span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 혼용 상세 설명 */}
+        <div style={{
+          padding: '8px 10px',
+          background: '#FDF3EE',
+          border: '1px solid rgba(217,119,87,0.25)',
+          borderRadius: 2,
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9,
+            color: 'var(--accent)',
+            letterSpacing: '0.1em',
+            marginBottom: 5,
+          }}>혼용 공법 배치 원칙 (현장 多수)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {[
+              { pos: '상부 단', method: '소일네일 (PSP)', reason: '토압 작음, 시공 경제적, 지반 조건 충족 시 적용' },
+              { pos: '하부 단', method: '영구앵커 (PPP)', reason: '토압·수압 집중, 안정 지반까지 정착장 확보 필요' },
+              { pos: '중간 단', method: '지반 변화에 따라 전환', reason: '지반조사 결과·설계자 판단으로 구간 결정' },
+            ].map((row, i) => (
+              <div key={i} style={{
+                display: 'grid',
+                gridTemplateColumns: '56px 100px 1fr',
+                gap: 6,
+                fontSize: 10,
+                lineHeight: 1.4,
+              }}>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  color: 'var(--text-3)',
+                  paddingTop: 1,
+                }}>{row.pos}</span>
+                <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{row.method}</span>
+                <span style={{ color: 'var(--text-2)' }}>{row.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 구조 해석 단위 */}
+        <div style={{
+          padding: '8px 10px',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 2,
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9,
+            color: 'var(--text-3)',
+            letterSpacing: '0.1em',
+            marginBottom: 5,
+          }}>구조 해석 단위 (단별 독립 기초 기준)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {[
+              { item: '외적안정 (활동·전도·지지력)', unit: '단별 독립 검토', note: '각 단이 자체 기초에서 저항' },
+              { item: '보강재 → 패널 전달', unit: '단별 독립 검토', note: '각 단 하중을 자기 보강재가 분담' },
+              { item: '전체안정 (원호활동)', unit: '전 구간 통합', note: 'SLOPE/W 등 외부 프로그램 — 다단 전체 관통' },
+            ].map((row, i) => (
+              <div key={i} style={{
+                display: 'grid',
+                gridTemplateColumns: '160px 90px 1fr',
+                gap: 6,
+                fontSize: 10,
+                lineHeight: 1.4,
+                borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
+                paddingBottom: i < 2 ? 3 : 0,
+              }}>
+                <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{row.item}</span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9,
+                  color: '#4A7FA5',
+                }}>{row.unit}</span>
+                <span style={{ color: 'var(--text-3)' }}>{row.note}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 출처 */}
+        <div style={{
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap' as const,
+        }}>
+          {[
+            'KDS 11 70 15 : 2020 § 4 (보강재 배치 기준)',
+            'KDS 11 80 20 : 2020 § 4.3 (외적안정 검토)',
+            'FHWA NHI-14-007 Ch.5 (Soil Nail — 다단 배치)',
+          ].map(src => (
+            <span key={src} style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 8,
+              color: 'var(--text-3)',
+              background: 'var(--bg-sidebar)',
+              border: '1px solid var(--border)',
+              padding: '2px 6px',
+              borderRadius: 2,
+            }}>※ {src}</span>
+          ))}
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
 function PhaseCard({ phase }: { phase: FlowPhase }) {
   const isHighlight = phase.id === 'stability'
 
@@ -305,6 +494,9 @@ function PhaseCard({ phase }: { phase: FlowPhase }) {
           </div>
         ))}
       </div>
+
+      {/* 공법 분류 가이드 */}
+      {phase.methodGuide && <MethodGuidePanel />}
 
       {/* 분기 조건 */}
       {phase.branches && (
