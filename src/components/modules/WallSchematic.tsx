@@ -199,8 +199,6 @@ export default function WallSchematic({ params }: Props) {
   const slopeStartX = tierBackX(0)
   const slopeStartY = tierTopY(0)
   const slopeRun = wallHpx / Math.tan(thetaRad)
-  const slopeEndX = Math.min(slopeStartX + slopeRun, W - PAD.r - 10)
-  const slopeEndY = botY
 
   const methodLabel = method === 'PSP' ? 'PSP — 소일네일 + PS패널'
     : method === 'PPP' ? 'PPP — 영구앵커 + PS패널'
@@ -231,20 +229,68 @@ export default function WallSchematic({ params }: Props) {
         <rect x={PAD.l} y={botY} width={W - PAD.l - PAD.r} height={14}
           fill="url(#ground-hatch)" opacity={0.4} />
 
-        {/* ── 배면토 해칭 ── */}
-        <polygon
-          points={`
-            ${slopeStartX},${slopeStartY}
-            ${slopeEndX},${slopeEndY}
-            ${tierBackX(n - 1)},${botY}
-            ${tierBackX(n - 1)},${tierTopY(n - 1)}
-          `}
-          fill="url(#backfill-hatch)" opacity={0.5}
-        />
+        {/* ── 비탈면 경사선 + 배면토 ──
+             실제 형태: 각 소단 끝에서 θ 경사로 다음 소단까지 이어지는 꺾인 선
+             소단 수평 → θ 경사 → 소단 수평 → θ 경사 ... 반복
+        ── */}
+        {(() => {
+          // 경사선 꺾임점 계산
+          // 각 단 i의 배면 상단에서 경사 θ로 내려가다가 다음 단 배면 상단에서 멈춤
+          // 최상단: tierBackX(0), tierTopY(0) 에서 출발
+          // 최하단 지나서 → 지반선까지 연장
 
-        {/* ── 비탈면 경사선 ── */}
-        <line x1={slopeStartX} y1={slopeStartY} x2={slopeEndX} y2={slopeEndY}
-          stroke="#3A3730" strokeWidth="1.2" strokeDasharray="10 4" />
+          const pts: [number, number][] = []
+          pts.push([tierBackX(0), tierTopY(0)])  // 최상단 출발
+
+          for (let i = 0; i < n - 1; i++) {
+            // i단 배면 하단 (소단 위)
+            const bx = tierBackX(i)
+            const by = tierBotY(i)
+            // θ 경사로 내려가면 소단 끝 x는 다음 단 배면 상단
+            const nextBx = tierBackX(i + 1)
+            // 경사선이 by 높이에서 nextBx까지 가는 y 계산
+            // 실제: 소단 위 지표는 수평이고, 배면 경사는 소단 위에서 시작
+            pts.push([bx, by])           // 소단 시작 (수평 이동)
+            pts.push([nextBx, by])       // 소단 끝 (다음 단 배면 x)
+          }
+          // 최하단 배면 하단 → 지반선까지 θ로 연장
+          const lastBx = tierBackX(n - 1)
+          const lastBy = tierBotY(n - 1)
+          pts.push([lastBx, lastBy])
+          // θ 경사로 지반선까지
+          const finalX = Math.min(lastBx + (botY - lastBy) / Math.tan(thetaRad), W - PAD.r - 10)
+          pts.push([finalX, botY])
+
+          const polyPoints = pts.map(([x, y]) => `${x},${y}`).join(' ')
+
+          // 배면토 폴리곤: 경사선 + 우측 지반 + 최하단 배면
+          const backfillPts = [
+            ...pts,
+            [W - PAD.r, botY],
+            [tierBackX(n - 1), botY],
+            [tierBackX(n - 1), tierTopY(n - 1)],
+            // 각 단 배면을 거슬러 올라감
+            ...Array.from({ length: n - 1 }, (_, k) => {
+              const ii = n - 1 - k
+              return [
+                [tierBackX(ii), tierTopY(ii)],
+                [tierBackX(ii - 1), tierBotY(ii - 1)],
+              ]
+            }).flat(),
+          ].map(([x, y]) => `${x},${y}`).join(' ')
+
+          return (
+            <g>
+              {/* 배면토 해칭 */}
+              <polygon points={backfillPts}
+                fill="url(#backfill-hatch)" opacity={0.45} stroke="none" />
+              {/* 비탈면 경사선 (꺾인 실선) */}
+              <polyline points={polyPoints}
+                fill="none" stroke="#3A3730" strokeWidth="1.3"
+                strokeDasharray="none" />
+            </g>
+          )
+        })()}
 
         {/* ── 레벨링 콘크리트 — 단별 독립 기초 ── */}
         {Array.from({ length: n }, (_, i) => {
