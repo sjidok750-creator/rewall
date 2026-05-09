@@ -76,7 +76,7 @@ export type ConfirmMap<T> = { [K in keyof T]?: boolean }
 // A. 단면·배근
 export interface SectionA {
   t: number              // 패널 두께 (mm)
-  b: number              // 해석폭 (mm)
+  b: number              // 패널 폭 B_panel (mm) — 패널 1장 실제 폭, 제조사 사양 확인. 단위 m 해석 아님.
   c_design: number       // 설계 피복 (mm)
   c_act: number          // 실측 피복 (mm)
   d_main: string         // 주철근 (예: D13)

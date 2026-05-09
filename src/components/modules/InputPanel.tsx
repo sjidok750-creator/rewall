@@ -260,7 +260,7 @@ const DEFAULT_BASE = (): BaseTier => ({ B: 1.2, ds: 0, tL: 0.3, Df: 0.5 })
 
 const DEFAULT_P03 = (stages: number): Phase03Output => ({
   A: {
-    t: 250, b: 1000, c_design: 60, c_act: 60,
+    t: 250, b: 1200, c_design: 60, c_act: 60,
     d_main: 'D13', s_main: 200,
     ps_type: 'SWPC7B', d_ps: 12.7, n_ps: 4,
     _origin: {}, _confirmed: {},
@@ -538,11 +538,11 @@ export default function InputPanel() {
             <NumInput value={p03.A.t} onChange={v => updA('t', v)} unit="mm" step={1} />
           </FieldRow>
 
-          <FieldRow label="해석 단위폭 b" prov={p03.A._origin.b}
+          <FieldRow label="패널 폭 B_panel" prov={p03.A._origin.b}
             tooltip={{
-              effect: 'Phase 04-C 휨해석 단위폭 — 통상 1000mm 단위로 산정',
-              limit: '실무 표준 b = 1000 mm 사용',
-              source: 'KDS 14 20 : 2022 §6.5',
+              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 단위 m(1000mm) 해석은 이 공법에 부적합. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
+              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인 필수. FHWA NHI-14-007 §5.3: 패널 1장 단위 해석 명시.',
+              source: 'FHWA NHI-14-007 §5.3; KDS 14 30 : 2022 4.2.1; PWAS 지침서 §5-4',
             }}>
             <NumInput value={p03.A.b} onChange={v => updA('b', v)} unit="mm" step={50} />
           </FieldRow>
