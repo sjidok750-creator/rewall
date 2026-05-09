@@ -533,8 +533,8 @@ export default function InputPanel() {
 
           <FieldRow label="패널 폭 B_panel" prov={p03.A._origin.b}
             tooltip={{
-              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
-              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인. Phase 01에서 수정.',
+              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 단위 m(1000mm) 해석은 이 공법에 부적합. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
+              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인 필수. FHWA NHI-14-007 §5.3: 패널 1장 단위 해석 명시.',
               source: 'FHWA NHI-14-007 §5.3; KDS 14 30 : 2022 4.2.1; PWAS 지침서 §5-4',
             }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
