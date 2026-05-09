@@ -166,15 +166,15 @@ export interface SectionF {
   _origin: OriginMap<SectionF>
 }
 
-// G. 기초 폭 B (단별)
+// G. 기초부 시공현황 (레벨링 콘크리트 — 비구조부재, 시공기록용)
+// 레벨링 콘크리트는 무근콘크리트로 구조기초 검토 대상이 아님.
+// ds·tL·Df는 전체안정해석(SLOPE/W) 경계조건 입력 참고값으로만 사용.
 export interface BaseTier {
-  B: number                 // 기초 폭 (m)
-  ds: number                // 세굴 깊이 (m)
+  ds: number                // 세굴 깊이 (m) — Phase 02 자동 이월
   tL: number                // 레벨링 두께 (m)
   Df: number                // 묻힘깊이 (m)
 }
 export interface SectionG {
-  B_mode: 'uniform' | 'per-tier'
   tiers: BaseTier[]
 }
 
