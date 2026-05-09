@@ -247,7 +247,10 @@ const resizeArr = <T,>(arr: T[], n: number, fill: () => T): T[] => {
 const DEFAULT_REINF = (kind: 'nail' | 'anchor' = 'nail'): ReinfTier => ({
   reinf_type: kind,
   L: kind === 'nail' ? 6 : 11,
-  d: 76.3, t_wall: 5.0, fy_steel: 350,
+  d: 76.3, t_wall: 5.0,
+  fy_nail: 400,          // SD400 이형철근 — 네일 전용
+  fpy_strand: 1580,      // SWPC7B PC강연선 항복 — 앵커 전용
+  fpu_strand: 1860,      // SWPC7B PC강연선 인장 — 앵커 전용
   sh: 1.5, sv: 1.0,
   alpha: kind === 'nail' ? 12 : 20,
   fcg: 24, Lf: 4, Lb: 7,
@@ -272,7 +275,7 @@ const DEFAULT_P03 = (stages: number): Phase03Output => ({
     _origin: {}, _confirmed: {},
   },
   C: {
-    T0_anchor: 0, T0_nail: 0, Tres_anchor: 0, Tres_nail: 0,
+    T0_anchor: 0, Pd_nail: 0, Tres_anchor: 0, Tres_nail: 0,
     Tres_method: 'estimated',
     loss_friction: 5, loss_anchor: 3, loss_elastic: 4,
     loss_shrinkage: 3, loss_creep: 5, loss_relax: 4,
@@ -391,9 +394,9 @@ export default function InputPanel() {
           _origin: { ...next.C._origin, Tres_anchor: 'phase02', Tres_method: 'auto' } }
         changed = true
       }
-      if (t0N !== null && !prev.C._confirmed.T0_nail && prev.C.T0_nail !== t0N) {
-        next.C = { ...next.C, T0_nail: t0N,
-          _origin: { ...next.C._origin, T0_nail: 'phase02' } }
+      if (t0N !== null && !prev.C._confirmed.Pd_nail && prev.C.Pd_nail !== t0N) {
+        next.C = { ...next.C, Pd_nail: t0N,
+          _origin: { ...next.C._origin, Pd_nail: 'phase02' } }
         changed = true
       }
       if (t0A !== null && !prev.C._confirmed.T0_anchor && prev.C.T0_anchor !== t0A) {
@@ -471,9 +474,11 @@ export default function InputPanel() {
     return p03.C.T0_anchor * (1 - lossTotal / 100)
   }, [p03.C, lossTotal])
   const tresFinalNail = useMemo(() => {
+    // 네일 = 이형철근 패시브 보강재. PS 6항 손실 없음.
+    // measured: Phase 02 인발확인시험 실측값, estimated: 설계 두부력 × (1 - 부식 단면감소율)
     if (p03.C.Tres_method === 'measured') return p03.C.Tres_nail
-    return p03.C.T0_nail * (1 - lossTotal / 100)
-  }, [p03.C, lossTotal])
+    return p03.C.Pd_nail * (1 - p03.B.rebar_loss / 100)
+  }, [p03.C, p03.B.rebar_loss])
   const dEff = useMemo(() => {
     const dPS = p03.A.d_ps
     return p03.A.t - p03.A.c_act - dPS / 2
@@ -692,61 +697,54 @@ export default function InputPanel() {
           </FieldRow>
 
           {/* ══ C. PS 잔존력 ═══════════════════════════════════════ */}
-          <SectionHead code="C" title="PS 잔존력 (Lift-off / 추정)" sub="→ Phase 04-B 패널휨 / 04-C P_eff"
+          <SectionHead code="C" title="PS 잔존력 / 네일 두부력" sub="→ Phase 04-B 패널휨·펀칭 / 04-C P_eff"
             focused={focusSec === 'C'} onClick={() => setFocusSec('C')} />
 
-          <FieldRow label="잔존력 산정 방식" prov={p03.C._origin.Tres_method}
-            tooltip={{
-              effect: '실측 vs 추정 — 실측이 항상 우선. 추정은 ±20% 오차 가능',
-              limit: 'KDS 14 30 §5.5 — 6항 손실(마찰·정착·탄성·건조수축·크리프·릴랙세이션) 누락 없이 합산',
-              source: 'KDS 14 30 : 2022 §5.5',
+          {/* ── 앵커 (PPP / 혼용) ─── */}
+          {p01.method !== 'PSP' && (<>
+            <div style={{
+              ...KR, fontSize: 10, color: 'var(--text-2)',
+              background: '#EBF3FF', border: '1px solid #4A7FA540',
+              borderLeft: '3px solid #4A7FA5',
+              borderRadius: 3, padding: '5px 10px', marginBottom: 6,
             }}>
-            <RadioGroup value={p03.C.Tres_method} onChange={v => updC('Tres_method', v)}
-              options={[
-                { value: 'measured',  label: '실측 우선 (Lift-off)' },
-                { value: 'estimated', label: '추정 (T_0 × (1−ΣΔfp))' },
-              ]} />
-          </FieldRow>
-
-          {p01.method !== 'PSP' && (
-          <FieldRow label="앵커 T_0 / T_res" prov={p03.C._origin.Tres_anchor}
-            tooltip={{
-              effect: 'Phase 04-B 패널 휨모멘트 산정의 핵심 입력 — Phase 02-D 자동 이월',
-              limit: 'T_res/T_0 ≥ 0.80: 정상 / < 0.60: 재긴장 검토',
-              source: 'KDS 11 70 15 : 2020 §5.4; PTI DC80.3-12 §7',
-            }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <NumInput value={p03.C.T0_anchor} onChange={v => updC('T0_anchor', v)} unit="kN" step={5} width={75} />
-              <span style={{ ...KR, fontSize: 10, color: 'var(--text-3)' }}>→</span>
-              <NumInput value={p03.C.Tres_anchor} onChange={v => updC('Tres_anchor', v)} unit="kN" step={5} width={75} />
+              영구앵커 — PC강연선(SWPC7B 1860급). 초기긴장 후 마찰·이완·크리프 등 PS손실 발생.
             </div>
-          </FieldRow>
-          )}
 
-          {p01.method !== 'PPP' && (
-          <FieldRow label="네일 T_0 / T_res" prov={p03.C._origin.Tres_nail}
-            tooltip={{
-              effect: 'Phase 04-B 펀칭전단 검토 입력 — Phase 02-D 자동 이월',
-              limit: 'T_res/T_0 ≥ 0.70: 정상 / < 0.50: 부족',
-              source: 'KDS 11 70 15 : 2020 §5.4',
-            }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <NumInput value={p03.C.T0_nail} onChange={v => updC('T0_nail', v)} unit="kN" step={5} width={75} />
-              <span style={{ ...KR, fontSize: 10, color: 'var(--text-3)' }}>→</span>
-              <NumInput value={p03.C.Tres_nail} onChange={v => updC('Tres_nail', v)} unit="kN" step={5} width={75} />
-            </div>
-          </FieldRow>
-          )}
+            <FieldRow label="앵커 잔존력 산정 방식" prov={p03.C._origin.Tres_method}
+              tooltip={{
+                effect: '실측: Phase 02-D Lift-off Test 측정값 직접 사용. 추정: T_0 × (1−ΣΔfp) 계산',
+                limit: 'Lift-off Test 실시가 원칙. 미실시 시 추정 모드 + 보수적 손실율 적용',
+                source: 'KDS 11 70 15 : 2020 §5.4; PTI DC80.3-17; KDS 14 30 : 2022 §5.5',
+              }}>
+              <RadioGroup value={p03.C.Tres_method} onChange={v => updC('Tres_method', v)}
+                options={[
+                  { value: 'measured',  label: '실측 (Lift-off Test)' },
+                  { value: 'estimated', label: '추정 (T_0 × (1−ΣΔfp))' },
+                ]} />
+            </FieldRow>
 
-          {/* 추정 모드일 때만 손실율 6항 표시 */}
-          {p03.C.Tres_method === 'estimated' && (
-            <>
+            <FieldRow label="앵커 T_0 / T_res" prov={p03.C._origin.Tres_anchor}
+              tooltip={{
+                effect: 'Phase 04-B 패널 휨모멘트 산정의 핵심 입력 — Phase 02-D 자동 이월',
+                limit: 'T_res/T_0 ≥ 0.80: 정상 / < 0.60: 재긴장 검토',
+                source: 'KDS 11 70 15 : 2020 §5.4; PTI DC80.3-12 §7',
+              }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <NumInput value={p03.C.T0_anchor} onChange={v => updC('T0_anchor', v)} unit="kN" step={5} width={75} />
+                <span style={{ ...KR, fontSize: 10, color: 'var(--text-3)' }}>→</span>
+                <NumInput value={p03.C.Tres_anchor} onChange={v => updC('Tres_anchor', v)} unit="kN" step={5} width={75} />
+              </div>
+            </FieldRow>
+
+            {/* 앵커 추정 모드 — KDS 14 30 §5.5 6항 손실 */}
+            {p03.C.Tres_method === 'estimated' && (<>
               <div style={{
                 ...KR, fontSize: 10, color: 'var(--text-2)',
                 background: 'var(--accent-bg)', border: '1px solid rgba(217,119,87,0.35)',
                 borderRadius: 3, padding: '6px 10px', margin: '8px 0 6px',
               }}>
-                KDS 14 30 §5.5 — 6항 손실율을 입력합니다. 통상 합계 20~28%.
+                KDS 14 30 §5.5 — 6항 손실율 (앵커 PC강연선 적용). 통상 합계 20~28%.
               </div>
               <LossRow label="마찰 Δfp_F" value={p03.C.loss_friction}
                 onChange={v => updC('loss_friction', v)} src="§5.5.2.2" />
@@ -760,20 +758,46 @@ export default function InputPanel() {
                 onChange={v => updC('loss_creep', v)} src="§5.5.2.6" />
               <LossRow label="릴랙세이션 Δfp_RE" value={p03.C.loss_relax}
                 onChange={v => updC('loss_relax', v)} src="§5.5.2.7" />
-            </>
-          )}
+              <DerivedRow label="총 손실율 ΣΔfp (앵커)" formula="Σ(6항)"
+                value={lossTotal.toFixed(1)} unit="%"
+                level={lossTotal > 35 ? 'fail' : lossTotal > 28 ? 'warn' : 'ok'} />
+            </>)}
 
-          {p03.C.Tres_method === 'estimated' && (
-            <DerivedRow label="총 손실율 ΣΔfp" formula="Σ(6항)"
-              value={lossTotal.toFixed(1)} unit="%"
-              level={lossTotal > 35 ? 'fail' : lossTotal > 28 ? 'warn' : 'ok'} />
-          )}
-          <DerivedRow label="확정 T_res (앵커)"
-            formula={p03.C.Tres_method === 'measured' ? '실측' : 'T_0×(1−ΣΔfp)'}
-            value={tresFinalAnchor.toFixed(1)} unit="kN" />
-          <DerivedRow label="확정 T_res (네일)"
-            formula={p03.C.Tres_method === 'measured' ? '실측' : 'T_0×(1−ΣΔfp)'}
-            value={tresFinalNail.toFixed(1)} unit="kN" />
+            <DerivedRow label="확정 T_res (앵커)"
+              formula={p03.C.Tres_method === 'measured' ? 'Lift-off 실측' : 'T_0×(1−ΣΔfp)'}
+              value={tresFinalAnchor.toFixed(1)} unit="kN" />
+          </>)}
+
+          {/* ── 네일 (PSP / 혼용) ─── */}
+          {p01.method !== 'PPP' && (<>
+            <div style={{
+              ...KR, fontSize: 10, color: 'var(--text-2)',
+              background: '#FFF3EB', border: '1px solid #D9775740',
+              borderLeft: '3px solid #D97757',
+              borderRadius: 3, padding: '5px 10px', marginBottom: 6,
+              marginTop: p01.method !== 'PSP' ? 10 : 0,
+            }}>
+              소일네일 — 이형철근(SD400) 패시브 보강재. 초기긴장력 없음.
+              T_res = P_d(설계 두부력) × (1 − 부식 단면감소율). Phase 02-A 부식률 자동 이월.
+            </div>
+
+            <FieldRow label="네일 P_d / T_res" prov={p03.C._origin.Tres_nail}
+              tooltip={{
+                effect: 'P_d: 도면의 설계 두부력(인발저항력). T_res: 부식 감소 반영 잔존력 — Phase 04-B 펀칭전단 검토 입력',
+                limit: 'T_res/P_d ≥ 0.70: 정상 / < 0.50: 단면 감소 과다, 보강 검토. Lift-off Test 대상 아님',
+                source: 'KDS 11 70 15 : 2020 §4.2; FHWA NHI-14-007 §4.3',
+              }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <NumInput value={p03.C.Pd_nail} onChange={v => updC('Pd_nail', v)} unit="kN" step={5} width={75} />
+                <span style={{ ...KR, fontSize: 10, color: 'var(--text-3)' }}>→</span>
+                <NumInput value={p03.C.Tres_nail} onChange={v => updC('Tres_nail', v)} unit="kN" step={5} width={75} />
+              </div>
+            </FieldRow>
+
+            <DerivedRow label="확정 T_res (네일)"
+              formula={p03.C.Tres_method === 'measured' ? '인발확인 실측' : 'P_d×(1−부식률)'}
+              value={tresFinalNail.toFixed(1)} unit="kN" />
+          </>)}
 
           {/* ══ D. 보강재 제원 ═════════════════════════════════════ */}
           <SectionHead code="D" title="보강재 제원 (네일 / 앵커)" sub="→ Phase 04-B 펀칭·휨 / 04-A 자체파괴"
@@ -1037,7 +1061,7 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
         )
       })}
       <div style={{ ...KR, fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>
-        그라우트 강도 f'cg, 강관 항복 fy_steel는 통상 24 MPa, 350 MPa(STK 기준) — Phase 04에서 자동 적용
+        그라우트 f'cg 통상 24 MPa | 네일 fy_nail: SD400=400 MPa, STK강관=350 MPa | 앵커 fpy/fpu: SWPC7B=1580/1860 MPa (KS D 7002)
       </div>
     </div>
   )

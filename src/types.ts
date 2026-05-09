@@ -106,18 +106,20 @@ export interface SectionB {
 }
 
 // C. PS 잔존력
+// Tres_method / 6항 손실은 앵커(PC강연선) 전용.
+// 네일(이형철근)은 초기긴장력 없음 → Pd_nail(설계 두부력)과 부식 단면감소율만 사용.
 export interface SectionC {
-  T0_anchor: number      // kN
-  T0_nail: number        // kN
+  T0_anchor: number      // kN — 앵커 초기긴장력 (시공기록)
+  Pd_nail: number        // kN — 네일 설계 두부력/인발저항력 (초기긴장력 아님)
   Tres_anchor: number    // kN
   Tres_nail: number      // kN
-  Tres_method: 'measured' | 'estimated'
-  loss_friction: number  // %
-  loss_anchor: number    // %
-  loss_elastic: number   // %
-  loss_shrinkage: number // %
-  loss_creep: number     // %
-  loss_relax: number     // %
+  Tres_method: 'measured' | 'estimated'  // 앵커 전용
+  loss_friction: number  // % — 앵커 전용
+  loss_anchor: number    // % — 앵커 전용
+  loss_elastic: number   // % — 앵커 전용
+  loss_shrinkage: number // % — 앵커 전용
+  loss_creep: number     // % — 앵커 전용
+  loss_relax: number     // % — 앵커 전용
   _origin: OriginMap<SectionC>
   _confirmed: ConfirmMap<SectionC>
 }
@@ -127,8 +129,10 @@ export interface ReinfTier {
   reinf_type: 'nail' | 'anchor'
   L: number              // 길이 (m)
   d: number              // 외경 (mm)
-  t_wall: number         // 강관 두께 (mm)
-  fy_steel: number       // 강관 항복 (MPa)
+  t_wall: number         // 강관 두께 (mm) — 강관네일 전용
+  fy_nail: number        // 이형철근/강관 항복강도 (MPa) — 네일 전용 (SD400: 400)
+  fpy_strand: number     // PC강연선 항복강도 (MPa) — 앵커 전용 (1580)
+  fpu_strand: number     // PC강연선 인장강도 (MPa) — 앵커 전용 (1860)
   sh: number             // 수평 간격 (m)
   sv: number             // 수직 간격 (m)
   alpha: number          // 경사각 (°)
