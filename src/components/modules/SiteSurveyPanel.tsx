@@ -440,84 +440,100 @@ export default function SiteSurveyPanel() {
           </div>
         )}
 
-        {/* ══ D. Lift-off Test ══════════════════════════════════════ */}
-        <SectionHead code="D" title="Lift-off Test — 잔존 인장력" sub="→ Phase 03 T_res 확정 / Phase 04-B 검토" />
+        {/* ══ D. 잔존력 측정 ════════════════════════════════════════ */}
+        <SectionHead code="D"
+          title={showAnchor && !showNail ? 'Lift-off Test — 앵커 잔존 인장력' : showNail && !showAnchor ? '소일네일 두부력 확인' : '잔존력 측정 (앵커 Lift-off / 네일 두부력)'}
+          sub="→ Phase 03 T_res 확정 / Phase 04-B 검토" />
 
-        <div style={{
-          ...KR, fontSize: 10, color: 'var(--text-3)',
-          background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
-          borderRadius: 3, padding: '6px 10px', marginBottom: 10,
-        }}>
-          미실시 시 Phase 03에서 T_res = T_0 × (1 − 손실율)로 추정. 실측값이 있으면 실측 우선 사용.
-          KDS 11 70 15 : 2020 §5.4 — 정기 점검 시 Lift-off Test 권장.
-        </div>
-
+        {/* ── 소일네일 (PSP / 혼용) ─── */}
         {showNail && (<>
-        <FieldRow label="소일네일 T_res" tooltip={{
-          effect: 'Phase 04-B 펀칭전단: V_u = T_res·cosα ≤ φ·v_c·b_o·d. T_res가 작을수록 FS 악화. KDS 11 70 15 §5.3',
-          limit: 'T_res/T_0 ≥ 0.70: 정상 / 0.50~0.70: 주의 / < 0.50: FS 부족 가능, 재긴장 또는 보강 검토',
-          source: 'KDS 11 70 15 : 2020 §5.4; FHWA NHI-14-007 §6.2',
-        }}>
-          <NumOrNone value={liftoffNail} onChange={setLiftoffNail} noneLabel="미실시" unit="kN" />
-        </FieldRow>
-
-        <FieldRow label="소일네일 T_0 (초기긴장력)" tooltip={{
-          effect: 'T_res/T_0 비율 계산 기준 — 도면 또는 시공기록 확인',
-          limit: '시공 당시 확인 필요. 기록 없으면 Phase 03에서 설계값 사용',
-          source: '시공기록·설계도면; KDS 11 70 15 : 2020 §5.2',
-        }}>
-          <NumOrNone value={initNail} onChange={setInitNail} noneLabel="기록없음" unit="kN" />
-        </FieldRow>
-
-        {nailRatio !== null && (
           <div style={{
-            ...MONO, fontSize: 11,
-            background: nailRatio >= 70 ? 'var(--ok-bg)' : nailRatio >= 50 ? 'var(--warn-bg)' : 'var(--fail-bg)',
-            border: `1px solid ${nailRatio >= 70 ? 'var(--ok)' : nailRatio >= 50 ? 'var(--warn)' : 'var(--fail)'}`,
-            borderRadius: 3, padding: '5px 10px', marginBottom: 4,
-            display: 'flex', gap: 12, alignItems: 'center',
+            ...KR, fontSize: 10, color: 'var(--text-2)',
+            background: '#FFF3EB', border: '1px solid #D9775740',
+            borderLeft: '3px solid #D97757',
+            borderRadius: 3, padding: '5px 10px', marginBottom: 8,
           }}>
-            <span>네일 T_res/T_0 =</span>
-            <span style={{ fontWeight: 700 }}>{nailRatio.toFixed(1)} %</span>
-            <span style={{ ...KR, fontSize: 10 }}>
-              {nailRatio >= 70 ? '✓ 정상' : nailRatio >= 50 ? '⚠ 주의 — Phase 04-B 확인' : '✕ 부족 — 보강 검토'}
-            </span>
+            소일네일은 패시브 보강재(이형철근 SD400) — 초기긴장력 없음. Lift-off Test 불가.
+            두부력(P_d)은 설계도면에서 확인. 현장 인발확인시험 실시 시 아래에 입력.
           </div>
-        )}
+
+          <FieldRow label="네일 두부력 T_res (인발확인)" tooltip={{
+            effect: 'Phase 03-C로 이월 → Phase 04-B 펀칭전단: V_u = T_res·cosα ≤ φ·v_c·b_o·d',
+            limit: 'T_res/P_d ≥ 0.70: 정상 / < 0.50: 단면 과다 감소, 보강 검토. 인발확인시험 미실시면 Phase 03에서 P_d × (1−부식률)로 자동 산정',
+            source: 'KDS 11 70 15 : 2020 §4.2; FHWA NHI-14-007 §4.3',
+          }}>
+            <NumOrNone value={liftoffNail} onChange={setLiftoffNail} noneLabel="미실시" unit="kN" />
+          </FieldRow>
+
+          <FieldRow label="네일 P_d (설계 두부력, 도면값)" tooltip={{
+            effect: 'T_res/P_d 비율 계산 기준. Phase 03-C Pd_nail로 자동 이월',
+            limit: '설계도서 또는 시공기록에서 확인. 기록 없으면 Phase 03에서 직접 입력',
+            source: '설계도면·구조계산서; KDS 11 70 15 : 2020 §4.2',
+          }}>
+            <NumOrNone value={initNail} onChange={setInitNail} noneLabel="기록없음" unit="kN" />
+          </FieldRow>
+
+          {nailRatio !== null && (
+            <div style={{
+              ...MONO, fontSize: 11,
+              background: nailRatio >= 70 ? 'var(--ok-bg)' : nailRatio >= 50 ? 'var(--warn-bg)' : 'var(--fail-bg)',
+              border: `1px solid ${nailRatio >= 70 ? 'var(--ok)' : nailRatio >= 50 ? 'var(--warn)' : 'var(--fail)'}`,
+              borderRadius: 3, padding: '5px 10px', marginBottom: 4,
+              display: 'flex', gap: 12, alignItems: 'center',
+            }}>
+              <span>네일 T_res/P_d =</span>
+              <span style={{ fontWeight: 700 }}>{nailRatio.toFixed(1)} %</span>
+              <span style={{ ...KR, fontSize: 10 }}>
+                {nailRatio >= 70 ? '✓ 정상' : nailRatio >= 50 ? '⚠ 주의 — Phase 04-B 확인' : '✕ 부족 — 보강 검토'}
+              </span>
+            </div>
+          )}
         </>)}
 
+        {/* ── 영구앵커 (PPP / 혼용) ─── */}
         {showAnchor && (<>
-        <FieldRow label="영구앵커 T_res" tooltip={{
-          effect: 'Phase 04-B 패널 휨: M_u = T_res·e_s/n_s ≤ φ·M_n. 앵커 T_res 감소가 패널 휨모멘트 검토에 직접 영향',
-          limit: 'T_res/T_0 ≥ 0.80: 정상 / 0.60~0.80: 주의 / < 0.60: 재긴장 또는 보강 검토 (PTI DC80.3-12 §7)',
-          source: 'KDS 11 70 15 : 2020 §5.4; PTI DC80.3-12 §7 (Lift-off Test)',
-        }}>
-          <NumOrNone value={liftoffAnchor} onChange={setLiftoffAnchor} noneLabel="미실시" unit="kN" />
-        </FieldRow>
-
-        <FieldRow label="영구앵커 T_0 (초기긴장력)" tooltip={{
-          effect: 'T_res/T_0 비율 계산 기준',
-          limit: '시공 당시 확인 필요',
-          source: '시공기록·설계도면; KDS 11 70 15 : 2020 §5.2',
-        }}>
-          <NumOrNone value={initAnchor} onChange={setInitAnchor} noneLabel="기록없음" unit="kN" />
-        </FieldRow>
-
-        {anchorRatio !== null && (
           <div style={{
-            ...MONO, fontSize: 11,
-            background: anchorRatio >= 80 ? 'var(--ok-bg)' : anchorRatio >= 60 ? 'var(--warn-bg)' : 'var(--fail-bg)',
-            border: `1px solid ${anchorRatio >= 80 ? 'var(--ok)' : anchorRatio >= 60 ? 'var(--warn)' : 'var(--fail)'}`,
-            borderRadius: 3, padding: '5px 10px', marginBottom: 4,
-            display: 'flex', gap: 12, alignItems: 'center',
+            ...KR, fontSize: 10, color: 'var(--text-2)',
+            background: '#EBF3FF', border: '1px solid #4A7FA540',
+            borderLeft: '3px solid #4A7FA5',
+            borderRadius: 3, padding: '5px 10px', marginBottom: 8,
+            marginTop: showNail ? 10 : 0,
           }}>
-            <span>앵커 T_res/T_0 =</span>
-            <span style={{ fontWeight: 700 }}>{anchorRatio.toFixed(1)} %</span>
-            <span style={{ ...KR, fontSize: 10 }}>
-              {anchorRatio >= 80 ? '✓ 정상' : anchorRatio >= 60 ? '⚠ 주의 — 재긴장 검토' : '✕ 부족 — 긴급 검토'}
-            </span>
+            영구앵커 — PC강연선(SWPC7B 1860급). 초기긴장 후 PS손실 발생.
+            Lift-off Test로 잔존 인장력 직접 측정. KDS 11 70 15 §5.4 — 정기 점검 시 권장.
           </div>
-        )}
+
+          <FieldRow label="영구앵커 T_res (Lift-off 실측)" tooltip={{
+            effect: 'Phase 04-B 패널 휨: M_u = T_res·e_s/n_s ≤ φ·M_n. 앵커 T_res 감소가 패널 휨모멘트 검토에 직접 영향',
+            limit: 'T_res/T_0 ≥ 0.80: 정상 / 0.60~0.80: 주의 / < 0.60: 재긴장 또는 보강 검토 (PTI DC80.3-12 §7)',
+            source: 'KDS 11 70 15 : 2020 §5.4; PTI DC80.3-12 §7',
+          }}>
+            <NumOrNone value={liftoffAnchor} onChange={setLiftoffAnchor} noneLabel="미실시" unit="kN" />
+          </FieldRow>
+
+          <FieldRow label="영구앵커 T_0 (초기긴장력, 시공기록)" tooltip={{
+            effect: 'T_res/T_0 비율 계산 기준. Phase 03-C T0_anchor로 자동 이월',
+            limit: '시공 당시 긴장관리기록에서 확인. 없으면 Phase 03에서 직접 입력',
+            source: '시공기록·긴장관리기록; KDS 11 70 15 : 2020 §5.2',
+          }}>
+            <NumOrNone value={initAnchor} onChange={setInitAnchor} noneLabel="기록없음" unit="kN" />
+          </FieldRow>
+
+          {anchorRatio !== null && (
+            <div style={{
+              ...MONO, fontSize: 11,
+              background: anchorRatio >= 80 ? 'var(--ok-bg)' : anchorRatio >= 60 ? 'var(--warn-bg)' : 'var(--fail-bg)',
+              border: `1px solid ${anchorRatio >= 80 ? 'var(--ok)' : anchorRatio >= 60 ? 'var(--warn)' : 'var(--fail)'}`,
+              borderRadius: 3, padding: '5px 10px', marginBottom: 4,
+              display: 'flex', gap: 12, alignItems: 'center',
+            }}>
+              <span>앵커 T_res/T_0 =</span>
+              <span style={{ fontWeight: 700 }}>{anchorRatio.toFixed(1)} %</span>
+              <span style={{ ...KR, fontSize: 10 }}>
+                {anchorRatio >= 80 ? '✓ 정상' : anchorRatio >= 60 ? '⚠ 주의 — 재긴장 검토' : '✕ 부족 — 긴급 검토'}
+              </span>
+            </div>
+          )}
         </>)}
 
         {/* ══ E. 지반조사자료 ════════════════════════════════════════ */}
