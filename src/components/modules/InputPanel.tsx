@@ -256,7 +256,7 @@ const DEFAULT_SOIL = (): SoilTier => ({
   gamma: 19, phi: 30, cohesion: 0, delta_ratio: 0.667,
   Ks: 30000, qu: 300, qu_method: 'report', N_value: 20,
 })
-const DEFAULT_BASE = (): BaseTier => ({ B: 1.2, ds: 0, tL: 0.3, Df: 0.5 })
+const DEFAULT_BASE = (): BaseTier => ({ ds: 0, tL: 0.15, Df: 0.3 })
 
 const DEFAULT_P03 = (stages: number): Phase03Output => ({
   A: {
@@ -284,7 +284,7 @@ const DEFAULT_P03 = (stages: number): Phase03Output => ({
     q_surcharge: 13, q_type: 'vehicle', gwl: -99, gwl_ref: 'base',
     _origin: {},
   },
-  G: { B_mode: 'per-tier', tiers: Array.from({ length: stages }, DEFAULT_BASE) },
+  G: { tiers: Array.from({ length: stages }, DEFAULT_BASE) },
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -886,42 +886,26 @@ export default function InputPanel() {
             <NumInput value={p03.F.gwl} onChange={v => updF('gwl', v)} unit="m" step={0.1} min={-99} />
           </FieldRow>
 
-          {/* ══ G. 기초 폭 B (단별) ════════════════════════════════ */}
-          <SectionHead code="G" title="★ 기초 폭 B (단별 레벨링 콘크리트)"
-            sub="→ Phase 04-A 활동·전도·지지력 (단별 독립)"
+          {/* ══ G. 기초부 시공현황 ══════════════════════════════════ */}
+          <SectionHead code="G" title="기초부 시공현황 (레벨링 콘크리트)"
+            sub="시공기록용 — 비구조부재 (무근콘크리트). 전체안정해석(SLOPE/W) 경계조건 참고값"
             focused={focusSec === 'G'} onClick={() => setFocusSec('G')} />
 
           <div style={{
             ...KR, fontSize: 10, color: 'var(--text-2)',
-            background: 'var(--accent-bg)', border: '1px solid rgba(217,119,87,0.35)',
+            background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
             borderRadius: 3, padding: '6px 10px', marginBottom: 10,
           }}>
-            ★ 본 시스템에서 각 단의 레벨링 콘크리트는 단별 독립 기초로 모델링됩니다.
-            세굴(d_s)은 Phase 02-A·F에서 자동 이월되어 유효 기초폭 B_eff = B − 2·d_s 산정에 반영됩니다.
+            레벨링 콘크리트는 <strong>무근콘크리트 비구조부재</strong>로 구조 기초 검토 대상이 아닙니다.
+            d_s·t_L·D_f 값은 전체안정해석(SLOPE/W) 경계조건 입력 참고값으로만 활용합니다.
             <br />
             <span style={{ color: 'var(--text-3)' }}>
-              ※ 이 단별 독립 기초 해석은 PSP/PPP 시공순서 기반 본 시스템 고유 모델 — KDS 명시 조항 없음 (면책 참조)
+              ※ KDS 11 80 20, KDS 11 70 15, FHWA NHI-14-007 어디에도 레벨링 콘크리트 기초 구조검토 조항 없음
             </span>
           </div>
 
-          <FieldRow label="입력 모드"
-            tooltip={{
-              effect: '단마다 B가 다른 경우(예: 최하단이 두꺼움) 단별 입력. 단별 입력이 일반적',
-              limit: '본 시스템 단별 독립 해석 기본 가정',
-              source: '본 시스템 (PWAS_지침서 §4-3)',
-            }}>
-            <RadioGroup value={p03.G.B_mode}
-              onChange={v => setP03(prev => ({ ...prev, G: { ...prev.G, B_mode: v } }))}
-              options={[
-                { value: 'uniform',  label: '전 단 동일' },
-                { value: 'per-tier', label: '단별 입력' },
-              ]} />
-          </FieldRow>
-
-          <BaseTable tiers={p03.G.tiers} mode={p03.G.B_mode}
-            onCellChange={(i, k, v) => updTier<BaseTier>('G', i, k, v)}
-            onUniformChange={(k, v) =>
-              setP03(prev => ({ ...prev, G: { ...prev.G, tiers: prev.G.tiers.map(t => ({ ...t, [k]: v })) } }))} />
+          <BaseTable tiers={p03.G.tiers}
+            onCellChange={(i, k, v) => updTier<BaseTier>('G', i, k, v)} />
 
           {/* ── 면책 ──────────────────────────────────────────────── */}
           <div style={{
@@ -930,7 +914,7 @@ export default function InputPanel() {
             ...KR, fontSize: 10, color: 'var(--text-3)', lineHeight: 1.6,
           }}>
             ※ Phase 03 입력값은 Phase 04 안정성 검토 계산에 직접 사용됩니다.
-            본 화면의 자동 산정값(열화감소율 η, 유효 d, Σ손실율, k_h 자동매핑, B_eff 등)은
+            본 화면의 자동 산정값(열화감소율 η, 유효 d, Σ손실율 등)은
             KDS 일반 규정 기반 추정치이며, PSP/PPP 특허 공법의 고유 가정과 다를 수 있습니다.
             '추정' 또는 '경험' 출처 뱃지가 붙은 항목은 Phase 06 보고서에서 신뢰도 낮음으로 표기됩니다.
             본 입력값과 Phase 04 결과의 최종 적정성은 진단기술사가 별도 확인하여야 합니다.
@@ -1117,36 +1101,29 @@ function SoilTable({ tiers, mode, onCellChange, onUniformChange }: {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 9. 단별 기초 표
+// 9. 단별 기초 표 (시공기록용 — 비구조)
 // ═══════════════════════════════════════════════════════════════════
-function BaseTable({ tiers, mode, onCellChange, onUniformChange }: {
-  tiers: BaseTier[]; mode: 'uniform' | 'per-tier'
+function BaseTable({ tiers, onCellChange }: {
+  tiers: BaseTier[]
   onCellChange: (i: number, k: keyof BaseTier, v: unknown) => void
-  onUniformChange: (k: keyof BaseTier, v: unknown) => void
 }) {
-  const rows = mode === 'uniform' ? [tiers[0]] : tiers
   return (
     <div style={{ marginTop: 4, marginBottom: 12 }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '34px 70px 70px 80px 70px 70px',
+        gridTemplateColumns: '34px 80px 80px 80px',
         gap: 4, marginBottom: 4,
       }}>
-        {['단', 'B (m)', 'd_s (m)', 'B_eff (m)', 't_L (m)', 'D_f (m)'].map(h => (
+        {['단', 'd_s (m)', 't_L (m)', 'D_f (m)'].map(h => (
           <div key={h} style={{ ...MONO, fontSize: 8, color: 'var(--text-3)', textAlign: 'center' }}>{h}</div>
         ))}
       </div>
-      {rows.map((t, i) => {
+      {tiers.map((t, i) => {
         if (!t) return null
-        const update = (k: keyof BaseTier, v: unknown) =>
-          mode === 'uniform' ? onUniformChange(k, v) : onCellChange(i, k, v)
-        const Beff = Math.max(0, t.B - 2 * t.ds)
-        const danger = t.ds > t.B / 4
-        const warn = t.ds > 0.05 && !danger
         return (
           <div key={i} style={{
             display: 'grid',
-            gridTemplateColumns: '34px 70px 70px 80px 70px 70px',
+            gridTemplateColumns: '34px 80px 80px 80px',
             gap: 4, alignItems: 'center', marginBottom: 3,
           }}>
             <div style={{
@@ -1154,23 +1131,15 @@ function BaseTable({ tiers, mode, onCellChange, onUniformChange }: {
               textAlign: 'center', background: 'var(--accent-bg)',
               border: '1px solid rgba(217,119,87,0.25)',
               borderRadius: 2, padding: '3px 0',
-            }}>{mode === 'uniform' ? '전체' : i + 1}</div>
-            <CellNum value={t.B} onChange={v => update('B', v)} step={0.05} />
-            <CellNum value={t.ds} onChange={v => update('ds', v)} step={0.01} />
-            <div style={{
-              ...MONO, fontSize: 10, fontWeight: 700,
-              color: danger ? 'var(--fail)' : warn ? 'var(--warn)' : 'var(--ok)',
-              background: danger ? 'var(--fail-bg)' : warn ? 'var(--warn-bg)' : 'var(--ok-bg)',
-              border: `1px solid ${danger ? 'var(--fail)' : warn ? 'var(--warn)' : 'var(--ok)'}`,
-              textAlign: 'center', borderRadius: 2, padding: '3px 0',
-            }}>{Beff.toFixed(2)}</div>
-            <CellNum value={t.tL} onChange={v => update('tL', v)} step={0.05} />
-            <CellNum value={t.Df} onChange={v => update('Df', v)} step={0.05} />
+            }}>{i + 1}</div>
+            <CellNum value={t.ds} onChange={v => onCellChange(i, 'ds', v)} step={0.01} />
+            <CellNum value={t.tL} onChange={v => onCellChange(i, 'tL', v)} step={0.05} />
+            <CellNum value={t.Df} onChange={v => onCellChange(i, 'Df', v)} step={0.05} />
           </div>
         )
       })}
       <div style={{ ...KR, fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>
-        d_s &gt; B/4: 긴급 보강 필요 (적색).  B_eff = B − 2·d_s — Phase 02-A/F 세굴 자동 이월
+        d_s: Phase 02-F 세굴 자동 이월 | t_L: 레벨링 콘크리트 두께 | D_f: 묻힘깊이 (SLOPE/W 경계조건 참고)
       </div>
     </div>
   )
@@ -1240,10 +1209,10 @@ const SECTION_CITES: Record<string, { title: string; formula: string; note: stri
     note: '내진검토(Mononobe-Okabe)는 본 버전에서 제외. 향후 별도 모듈로 추가 예정.',
   },
   G: {
-    title: 'KDS 11 80 20 : 2020 §4.4 (지지력)',
+    title: '기초부 시공현황 — 비구조부재 기록',
     formula:
-      'B_eff = B − 2·e\ne = B/2 − (M_R − M_O)/ΣV\ne ≤ B/6  (인장 발생 방지)\n\nq_max = ΣV / (B_eff·L) × (1 + 6e/B_eff)\nFS_지지 = q_u / q_max ≥ 2.5\n\n본 시스템 추가:\nB_eff,scour = B − 2·d_s  (Phase 02 세굴)',
-    note: '본 시스템의 단별 독립 기초 해석은 PSP/PPP 시공순서 기반 고유 모델 — KDS 직접 명시 없음.',
+      'd_s : 세굴 깊이 (m) — Phase 02-F 자동 이월\nt_L : 레벨링 콘크리트 두께 (m)\nD_f : 묻힘깊이 (m)\n\n레벨링 콘크리트 = 무근콘크리트\n→ 구조 기초 검토 불가\n→ SLOPE/W 경계조건 입력 참고용',
+    note: 'KDS 11 80 20, KDS 11 70 15, FHWA NHI-14-007 어느 기준서에도 레벨링 콘크리트 구조검토 조항 없음. 전체안정은 Phase 04-A (SLOPE/W 결과 입력).',
   },
 }
 
@@ -1357,8 +1326,8 @@ function KDSSideBoard({ focused, confidence, p03, derived }: {
           <Summary k="유효 d" v={`${derived.dEff.toFixed(1)} mm`} />
           <Summary k="T_res(앵커)" v={`${derived.tresFinalAnchor.toFixed(1)} kN`} />
           <Summary k="T_res(네일)" v={`${derived.tresFinalNail.toFixed(1)} kN`} />
-          <Summary k="B_eff(1단)"
-            v={`${Math.max(0, (p03.G.tiers[0]?.B ?? 0) - 2 * (p03.G.tiers[0]?.ds ?? 0)).toFixed(2)} m`} />
+          <Summary k="세굴깊이(1단)"
+            v={`${(p03.G.tiers[0]?.ds ?? 0).toFixed(2)} m`} />
           <Summary k="γ / φ / c"
             v={`${(p03.E.tiers[0]?.gamma ?? 0).toFixed(1)} / ${(p03.E.tiers[0]?.phi ?? 0).toFixed(0)}° / ${(p03.E.tiers[0]?.cohesion ?? 0).toFixed(0)} kPa`} />
         </div>

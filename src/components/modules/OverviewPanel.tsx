@@ -119,17 +119,23 @@ const PHASES: FlowPhase[] = [
     color: '#D97757',
     items: [
       {
-        label: 'A. 외적 안정  [KDS 11 80 20]',
+        label: 'A. 전체안정 (원호활동)  [외부 입력]',
         subs: [
-          '토압 산정 — Coulomb 주동토압',
-          '활동 검토 — FS ≥ 1.5',
-          '전도 검토 — FS ≥ 1.5',
-          '지지력 검토 — FS ≥ 2.5',
-          '자체파괴 검토 — FS ≥ 2.0 (전단·모멘트)',
+          'SLOPE/W 등 외부 프로그램 결과 수동 입력',
+          '다단 전체 관통 원호 — 가장 불리한 활동면',
+          '미입력 시 → 등급판정 제한 (경고 플래그)',
         ],
       },
       {
-        label: 'B. 보강재→패널 전달  [KDS 11 70 15 + FHWA]',
+        label: 'B. 자체파괴 검토  [KDS 11 80 20]',
+        subs: [
+          '토압 산정 — Coulomb 주동토압 (단별)',
+          '보강재 인발저항 검토 — FS ≥ 2.0',
+          '패널 수평저항 검토',
+        ],
+      },
+      {
+        label: 'C. 보강재→패널 전달  [KDS 11 70 15 + FHWA]',
         subs: [
           '앵커·네일 잔존 인장력 확인',
           '패널 펀칭전단 검토 — 두부 집중하중·임계둘레',
@@ -137,7 +143,7 @@ const PHASES: FlowPhase[] = [
         ],
       },
       {
-        label: 'C. PC 패널 단면  [KDS 14 20 + 14 30]',
+        label: 'D. PC 패널 단면  [KDS 14 20 + 14 30]',
         subs: [
           'PS 유효 잔존력 적용',
           '휨강도 검토 (균열모멘트 / 극한모멘트)',
@@ -145,16 +151,9 @@ const PHASES: FlowPhase[] = [
           '정착부 지압응력 검토',
         ],
       },
-      {
-        label: 'D. 전체안정 (원호활동)  [외부 입력]',
-        subs: [
-          'SLOPE/W 등 외부 프로그램 결과 수동 입력',
-          '미입력 시 → 등급판정 제한 (경고)',
-        ],
-      },
     ],
     kds: ['KDS 11 80 20', 'KDS 11 70 15', 'KDS 14 20', 'KDS 14 30'],
-    branches: ['항목별 FS → 합격(✓) / 불합격(✗) 자동 표시', '전체안정 미입력 → 경고 플래그'],
+    branches: ['항목별 FS → 합격(✓) / 불합격(✗) 자동 표시', '전체안정(A항) 미입력 → 경고 플래그'],
   },
   {
     id: 'grade',
@@ -344,9 +343,10 @@ function MethodGuidePanel() {
           }}>구조 해석 단위</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {[
-              { item: '외적안정 (활동·전도·지지력)', unit: '단별 독립 검토', note: '각 단 자체 레벨링 콘크리트 기초 위에서 독립 저항 (시공순서 확인)' },
-              { item: '보강재 → 패널 전달', unit: '단별 독립 검토', note: '수평 토압은 각 단 보강재가 독립 저항 (방향 무관)' },
-              { item: '전체안정 (원호활동)', unit: '전 구간 통합', note: 'SLOPE/W 등 외부 프로그램 — 다단 전체 관통' },
+              { item: '전체안정 (원호활동)', unit: '전 구간 통합', note: 'SLOPE/W 등 외부 프로그램 — 다단 전체 관통 원호. 가장 중요한 검토 항목' },
+              { item: '자체파괴 (보강재 인발)', unit: '단별 독립 검토', note: '각 단 보강재(네일/앵커)의 인발저항 — 수평토압 대비 FS ≥ 2.0' },
+              { item: '보강재 → 패널 전달', unit: '단별 독립 검토', note: '잔존 인장력이 패널에 전달 — 펀칭전단·휨 검토' },
+              { item: 'PC 패널 단면', unit: '패널 1장 기준', note: 'PS잔존력 기반 휨·전단강도, 정착부 지압응력 검토' },
             ].map((row, i) => (
               <div key={i} style={{
                 display: 'grid',
@@ -354,8 +354,8 @@ function MethodGuidePanel() {
                 gap: 6,
                 fontSize: 10,
                 lineHeight: 1.4,
-                borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
-                paddingBottom: i < 2 ? 3 : 0,
+                borderBottom: i < 3 ? '1px solid var(--border)' : 'none',
+                paddingBottom: i < 3 ? 3 : 0,
               }}>
                 <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, fontWeight: 600, color: 'var(--text-1)' }}>{row.item}</span>
                 <span style={{ fontFamily: 'Pretendard, sans-serif', fontSize: 11, fontWeight: 700, color: '#4A7FA5' }}>{row.unit}</span>
@@ -373,7 +373,7 @@ function MethodGuidePanel() {
         }}>
           {[
             'KDS 11 70 15 : 2020 § 4 (보강재 배치 기준)',
-            'KDS 11 80 20 : 2020 § 4.3 (외적안정 검토)',
+            'KDS 11 80 20 : 2020 § 4.3 (자체파괴 검토)',
             'FHWA NHI-14-007 Ch.5 (Soil Nail — 다단 배치)',
           ].map(src => (
             <span key={src} style={{
