@@ -109,6 +109,13 @@ const kdsOptions = [
 ]
 const DEFAULT_TIER = (): TierConfig => ({ panels: 2, bermWidth: 0.5 })
 
+function defaultTierMethods(stages: number, method: WallParams['method']): ('PSP'|'PPP')[] {
+  if (method === 'PPP') return Array(stages).fill('PPP')
+  if (method === 'PSP') return Array(stages).fill('PSP')
+  // mixed or '': upper half PSP, lower half PPP
+  return Array.from({ length: stages }, (_, i) => (i < Math.ceil(stages / 2) ? 'PSP' : 'PPP'))
+}
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function BasicInfoPanel() {
   const { setP01 } = usePwas()
@@ -120,32 +127,52 @@ export default function BasicInfoPanel() {
   const [slopeAngle, setSlopeAngle] = useState(75)
   const [wallThick, setWallThick] = useState(0.25)
   const [panelHeight, setPanelHeight] = useState(1.0)
+  const [panelWidth, setPanelWidth] = useState(1200)
+  const [designFck, setDesignFck] = useState(40)
   const [length, setLength] = useState(30)
   const [tiers, setTiers] = useState<TierConfig[]>(Array.from({ length: 4 }, DEFAULT_TIER))
+  const [tierMethods, setTierMethods] = useState<('PSP'|'PPP')[]>(['PSP', 'PSP', 'PPP', 'PPP'])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTiers(prev => {
       if (prev.length === stages) return prev
       if (stages > prev.length)
         return [...prev, ...Array.from({ length: stages - prev.length }, DEFAULT_TIER)]
       return prev.slice(0, stages)
     })
+    setTierMethods(prev => {
+      if (prev.length === stages) return prev
+      if (stages > prev.length)
+        return [...prev, ...Array.from({ length: stages - prev.length }, () => 'PSP' as 'PSP'|'PPP')]
+      return prev.slice(0, stages)
+    })
   }, [stages])
+
+  // method 변경 시 (비혼용) tierMethods 동기화
+  useEffect(() => {
+    if (method !== 'mixed') {
+      setTierMethods(defaultTierMethods(stages, method))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method])
 
   // Phase 01 → Context mirror (Phase 03 carry-over용)
   // (내부 상태 → 외부 상태 publish — setState in effect 정당)
   useEffect(() => {
     const totalPanels = tiers.reduce((s, t) => s + t.panels, 0)
+    const effectiveMethods: ('PSP'|'PPP')[] = method === 'mixed'
+      ? tierMethods
+      : tiers.map(() => (method === 'PPP' ? 'PPP' : 'PSP'))
     setP01({
       method, construction, kds, docStatus,
-      stages, slopeAngle, panelHeight, wallThick, length,
+      stages, slopeAngle, panelHeight, panelWidth, designFck, wallThick, length,
       height: totalPanels * panelHeight,
       tierPanels: tiers.map(t => t.panels),
       tierBerms: tiers.map(t => t.bermWidth),
+      tierMethods: effectiveMethods,
     })
   }, [method, construction, kds, docStatus, stages, slopeAngle,
-      panelHeight, wallThick, length, tiers, setP01])
+      panelHeight, panelWidth, designFck, wallThick, length, tiers, tierMethods, setP01])
 
   const updateTier = (i: number, key: keyof TierConfig, val: number) =>
     setTiers(prev => prev.map((t, idx) => idx === i ? { ...t, [key]: val } : t))
@@ -212,7 +239,7 @@ export default function BasicInfoPanel() {
           </Field>
           {kds === '2016' && (
             <div style={{ gridColumn: '1 / -1', padding: '5px 8px', background: '#FFF8E7', border: '1px solid #E8C97A', borderRadius: 2, ...MONO, fontSize: 9, color: '#7A5A1A', lineHeight: 1.5 }}>
-              ※ 2016→2020: 활동·전도FS 통일, M-O 지진계수, 앵커안전율 재정비
+              ※ 2016→2020: 활동·전도FS 통일, 앵커안전율 재정비
             </div>
           )}
         </div>
@@ -232,8 +259,17 @@ export default function BasicInfoPanel() {
           <Field label="패널 두께 t">
             <NumInput value={wallThick} onChange={setWallThick} min={0.1} max={0.5} step={0.01} unit="m" />
           </Field>
-          <Field label="패널 높이" style={{ gridColumn: '1 / -1' }}>
+          <Field label="패널 높이">
             <NumInput value={panelHeight} onChange={setPanelHeight} min={0.3} max={4} step={0.1} unit="m" />
+          </Field>
+          <Field label="패널 폭 B_panel">
+            <NumInput value={panelWidth} onChange={setPanelWidth} min={500} max={3000} step={50} unit="mm" />
+          </Field>
+          <Field label="설계기준강도 f'ck" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <NumInput value={designFck} onChange={setDesignFck} min={18} max={80} step={1} unit="MPa" />
+              <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>도면 확인값</span>
+            </div>
           </Field>
         </div>
 
@@ -241,8 +277,15 @@ export default function BasicInfoPanel() {
         <SectionHead num="④" title="단별 제원" />
 
         {/* 테이블 헤더 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '22px 1fr 1fr 48px', gap: 4, marginBottom: 4 }}>
-          {['단', '패널 수', '소단 폭', '단높이'].map(h => (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: method === 'mixed' ? '22px 1fr 1fr 48px 48px' : '22px 1fr 1fr 48px',
+          gap: 4, marginBottom: 4,
+        }}>
+          {(method === 'mixed'
+            ? ['단', '패널 수', '소단 폭', '공법', '단높이']
+            : ['단', '패널 수', '소단 폭', '단높이']
+          ).map(h => (
             <div key={h} style={{ ...MONO, fontSize: 8, color: 'var(--text-3)', textAlign: 'center' as const, letterSpacing: '0.03em' }}>{h}</div>
           ))}
         </div>
@@ -252,8 +295,13 @@ export default function BasicInfoPanel() {
           {tiers.map((tier, i) => {
             const isBottom = i === stages - 1
             const tierH = (tier.panels * panelHeight).toFixed(1)
+            const tm = tierMethods[i] ?? 'PSP'
             return (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '22px 1fr 1fr 48px', gap: 4, alignItems: 'center' }}>
+              <div key={i} style={{
+                display: 'grid',
+                gridTemplateColumns: method === 'mixed' ? '22px 1fr 1fr 48px 48px' : '22px 1fr 1fr 48px',
+                gap: 4, alignItems: 'center',
+              }}>
                 <div style={{
                   ...MONO, fontSize: 10, fontWeight: 700,
                   color: 'var(--accent)', textAlign: 'center' as const,
@@ -266,6 +314,19 @@ export default function BasicInfoPanel() {
                   ? <div style={{ ...MONO, fontSize: 10, color: 'var(--text-3)', textAlign: 'center' as const }}>—</div>
                   : <TierCell value={tier.bermWidth} onChange={v => updateTier(i, 'bermWidth', Math.max(0.1, Math.min(3, v)))} min={0.1} max={3} step={0.1} />
                 }
+                {method === 'mixed' && (
+                  <button onClick={() => setTierMethods(prev => prev.map((m, j) => j === i ? (m === 'PSP' ? 'PPP' : 'PSP') : m))}
+                    style={{
+                      ...MONO, fontSize: 9, fontWeight: 700, cursor: 'pointer',
+                      border: '1px solid',
+                      borderRadius: 2, padding: '2px 0', width: '100%',
+                      background: tm === 'PSP' ? '#FFF3EB' : '#EBF3FF',
+                      borderColor: tm === 'PSP' ? '#D97757' : '#4A7FA5',
+                      color: tm === 'PSP' ? '#D97757' : '#4A7FA5',
+                    }}>
+                    {tm}
+                  </button>
+                )}
                 <div style={{
                   ...MONO, fontSize: 10, color: '#4A7FA5', textAlign: 'center' as const,
                   background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
@@ -278,7 +339,8 @@ export default function BasicInfoPanel() {
 
         {/* 합계 */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '22px 1fr 1fr 48px',
+          display: 'grid',
+          gridTemplateColumns: method === 'mixed' ? '22px 1fr 1fr 48px 48px' : '22px 1fr 1fr 48px',
           gap: 4, marginTop: 6, paddingTop: 6,
           borderTop: '1px solid var(--border)',
           alignItems: 'center',
@@ -286,6 +348,7 @@ export default function BasicInfoPanel() {
           <div />
           <div style={{ ...KR, fontSize: 10, color: 'var(--text-3)', textAlign: 'right' as const, paddingRight: 4 }}>합계</div>
           <div style={{ ...MONO, fontSize: 10, color: 'var(--text-3)', textAlign: 'center' as const }}>{totalPanels}장</div>
+          {method === 'mixed' && <div />}
           <div style={{
             ...MONO, fontSize: 11, fontWeight: 700, color: 'var(--accent)',
             textAlign: 'center' as const,

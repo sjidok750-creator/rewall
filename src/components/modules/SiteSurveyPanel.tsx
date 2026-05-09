@@ -193,7 +193,10 @@ function WarnBadge({ show, text, level = 'warn' }: { show: boolean; text: string
 // SiteSurveyPanel
 // ═══════════════════════════════════════════════════════════════════
 export default function SiteSurveyPanel() {
-  const { setP02 } = usePwas()
+  const { setP02, p01 } = usePwas()
+
+  const showNail   = p01.method !== 'PPP'
+  const showAnchor = p01.method !== 'PSP'
 
   // ── A. 외관조사 — 안전성평가 계산에 직접 반영되는 측정값 ─────────
   const [crackWidth, setCrackWidth] = useState('')       // 최대 균열폭 (mm)
@@ -210,7 +213,7 @@ export default function SiteSurveyPanel() {
 
   // ── C. 코어 압축강도 ─────────────────────────────────────────────
   const [coreFck, setCoreFck] = useState('')             // 코어 f'c (MPa)
-  const [designFck, setDesignFck] = useState('')         // 설계 f'ck (MPa)
+  // designFck는 Phase 01에서 관리 — p01.designFck 사용
 
   // ── D. Lift-off Test ──────────────────────────────────────────────
   const [liftoffNail, setLiftoffNail] = useState('')     // 네일 T_res (kN)
@@ -235,7 +238,7 @@ export default function SiteSurveyPanel() {
     setP02({
       crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
       schmidt, ultrasound, carbonation, coverDepth,
-      coreFck, designFck,
+      coreFck,
       liftoffNail, initNail, liftoffAnchor, initAnchor,
       gamma, phi, cohesion, groundMemo,
       levelCrack, levelScour, settlement,
@@ -243,15 +246,15 @@ export default function SiteSurveyPanel() {
   }, [
     crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
     schmidt, ultrasound, carbonation, coverDepth,
-    coreFck, designFck,
+    coreFck,
     liftoffNail, initNail, liftoffAnchor, initAnchor,
     gamma, phi, cohesion, groundMemo,
     levelCrack, levelScour, settlement, setP02,
   ])
 
   // ── 파생 계산 ────────────────────────────────────────────────────
-  const fckRatio = coreFck && designFck && Number(designFck) > 0
-    ? Number(coreFck) / Number(designFck) * 100 : null
+  const fckRatio = coreFck && p01.designFck > 0
+    ? Number(coreFck) / p01.designFck * 100 : null
 
   const nailRatio = liftoffNail && initNail && Number(initNail) > 0
     ? Number(liftoffNail) / Number(initNail) * 100 : null
@@ -401,12 +404,23 @@ export default function SiteSurveyPanel() {
           <NumOrNone value={coreFck} onChange={setCoreFck} noneLabel="미채취" unit="MPa" />
         </FieldRow>
 
-        <FieldRow label="설계기준강도 f'ck (도면)" tooltip={{
+        <FieldRow label="설계기준강도 f'ck" tooltip={{
           effect: "강도비 = f'c / f'ck 산정 기준 — 열화율 계산 및 Phase 03 보정계수 결정에 사용",
           limit: "PSP/PPP 패널 통상 f'ck = 40~50 MPa (KDS 14 30 프리스트레스트 콘크리트)",
-          source: 'KDS 14 30 : 2022 §4.1; 설계도면',
+          source: 'KDS 14 30 : 2022 §4.1; Phase 01 기본정보에서 입력',
         }}>
-          <NumOrNone value={designFck} onChange={setDesignFck} noneLabel="도면없음" unit="MPa" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              ...MONO, fontSize: 12, color: 'var(--text-1)',
+              background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+              borderRadius: 2, padding: '4px 10px',
+            }}>
+              {p01.designFck > 0 ? `${p01.designFck} MPa` : '— 미입력'}
+            </div>
+            <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>
+              Phase 01 기본정보에서 입력 → 자동 이월
+            </span>
+          </div>
         </FieldRow>
 
         {/* 강도비 계산 결과 */}
@@ -438,6 +452,7 @@ export default function SiteSurveyPanel() {
           KDS 11 70 15 : 2020 §5.4 — 정기 점검 시 Lift-off Test 권장.
         </div>
 
+        {showNail && (<>
         <FieldRow label="소일네일 T_res" tooltip={{
           effect: 'Phase 04-B 펀칭전단: V_u = T_res·cosα ≤ φ·v_c·b_o·d. T_res가 작을수록 FS 악화. KDS 11 70 15 §5.3',
           limit: 'T_res/T_0 ≥ 0.70: 정상 / 0.50~0.70: 주의 / < 0.50: FS 부족 가능, 재긴장 또는 보강 검토',
@@ -469,7 +484,9 @@ export default function SiteSurveyPanel() {
             </span>
           </div>
         )}
+        </>)}
 
+        {showAnchor && (<>
         <FieldRow label="영구앵커 T_res" tooltip={{
           effect: 'Phase 04-B 패널 휨: M_u = T_res·e_s/n_s ≤ φ·M_n. 앵커 T_res 감소가 패널 휨모멘트 검토에 직접 영향',
           limit: 'T_res/T_0 ≥ 0.80: 정상 / 0.60~0.80: 주의 / < 0.60: 재긴장 또는 보강 검토 (PTI DC80.3-12 §7)',
@@ -501,6 +518,7 @@ export default function SiteSurveyPanel() {
             </span>
           </div>
         )}
+        </>)}
 
         {/* ══ E. 지반조사자료 ════════════════════════════════════════ */}
         <SectionHead code="E" title="지반조사자료" sub="→ Phase 04-A Coulomb 토압 / 활동·전도·지지력 FS" />

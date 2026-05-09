@@ -260,7 +260,7 @@ const DEFAULT_BASE = (): BaseTier => ({ B: 1.2, ds: 0, tL: 0.3, Df: 0.5 })
 
 const DEFAULT_P03 = (stages: number): Phase03Output => ({
   A: {
-    t: 250, b: 1000, c_design: 60, c_act: 60,
+    t: 250, b: 1200, c_design: 60, c_act: 60,
     d_main: 'D13', s_main: 200,
     ps_type: 'SWPC7B', d_ps: 12.7, n_ps: 4,
     _origin: {}, _confirmed: {},
@@ -282,8 +282,6 @@ const DEFAULT_P03 = (stages: number): Phase03Output => ({
   E: { tierMode: 'uniform', tiers: Array.from({ length: stages }, DEFAULT_SOIL) },
   F: {
     q_surcharge: 13, q_type: 'vehicle', gwl: -99, gwl_ref: 'base',
-    seismic_on: true, seismic_zone: 'I', soil_class: 'S2', return_period: '1000',
-    kh_manual: false, kh: 0.154, kv: 0.077,
     _origin: {},
   },
   G: { B_mode: 'per-tier', tiers: Array.from({ length: stages }, DEFAULT_BASE) },
@@ -297,18 +295,22 @@ export default function InputPanel() {
   const [p03, setP03] = useState<Phase03Output>(() => DEFAULT_P03(p01.stages || 4))
   const [focusSec, setFocusSec] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'>('A')
 
-  // ── Phase 01 stages 변경 시 D/E/G 단별 배열 길이 동기화 ──────────
-  // (외부 상태 → 내부 상태 sync — setState in effect 정당)
+  // ── Phase 01 stages/tierMethods 변경 시 D/E/G 단별 배열 동기화 ──
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setP03(prev => ({
-      ...prev,
-      D: { ...prev.D, tiers: resizeArr(prev.D.tiers, p01.stages, () =>
-            DEFAULT_REINF(p01.method === 'PPP' ? 'anchor' : 'nail')) },
-      E: { ...prev.E, tiers: resizeArr(prev.E.tiers, p01.stages, DEFAULT_SOIL) },
-      G: { ...prev.G, tiers: resizeArr(prev.G.tiers, p01.stages, DEFAULT_BASE) },
-    }))
-  }, [p01.stages, p01.method])
+    setP03(prev => {
+      const defaultKind = (i: number): 'nail'|'anchor' =>
+        (p01.tierMethods[i] ?? (p01.method === 'PPP' ? 'PPP' : 'PSP')) === 'PPP' ? 'anchor' : 'nail'
+      const newDTiers = resizeArr(prev.D.tiers, p01.stages, () => DEFAULT_REINF(defaultKind(prev.D.tiers.length)))
+        .map((t, i) => ({ ...t, reinf_type: defaultKind(i) as 'nail'|'anchor' }))
+      return {
+        ...prev,
+        D: { ...prev.D, tiers: newDTiers },
+        E: { ...prev.E, tiers: resizeArr(prev.E.tiers, p01.stages, DEFAULT_SOIL) },
+        G: { ...prev.G, tiers: resizeArr(prev.G.tiers, p01.stages, DEFAULT_BASE) },
+      }
+    })
+  }, [p01.stages, p01.method, p01.tierMethods])
 
   // ── Phase 01 wallThick → Section A.t 자동 이월 ──────────────────
   // (외부 상태 → 내부 상태 sync — setState in effect 정당)
@@ -325,6 +327,26 @@ export default function InputPanel() {
     })
   }, [p01.wallThick])
 
+  // ── Phase 01 panelWidth → Section A.b 자동 이월 ─────────────────
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setP03(prev => {
+      if (prev.A._confirmed.b) return prev
+      if (Math.abs(prev.A.b - p01.panelWidth) < 0.01) return prev
+      return { ...prev, A: { ...prev.A, b: p01.panelWidth, _origin: { ...prev.A._origin, b: 'drawing' } } }
+    })
+  }, [p01.panelWidth])
+
+  // ── Phase 01 designFck → Section B.fck_design 자동 이월 ─────────
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setP03(prev => {
+      if (prev.B._confirmed.fck_design) return prev
+      if (Math.abs(prev.B.fck_design - p01.designFck) < 0.01) return prev
+      return { ...prev, B: { ...prev.B, fck_design: p01.designFck, _origin: { ...prev.B._origin, fck_design: 'drawing' } } }
+    })
+  }, [p01.designFck])
+
   // ── Phase 02 → Phase 03 자동 이월 ───────────────────────────────
   // (외부 상태 → 내부 상태 sync — setState in effect 정당)
   useEffect(() => {
@@ -338,13 +360,6 @@ export default function InputPanel() {
       if (coreFck !== null && !prev.B._confirmed.fck_core && prev.B.fck_core !== coreFck) {
         next.B = { ...next.B, fck_core: coreFck, fck_use: 'measured',
           _origin: { ...next.B._origin, fck_core: 'phase02', fck_use: 'auto' } }
-        changed = true
-      }
-      // B. 설계 fck → fck_design (도면값)
-      const designFck = safeNum(p02.designFck)
-      if (designFck !== null && !prev.B._confirmed.fck_design && prev.B.fck_design !== designFck) {
-        next.B = { ...next.B, fck_design: designFck,
-          _origin: { ...next.B._origin, fck_design: 'phase02' } }
         changed = true
       }
       // B. 부식 단면감소 → rebar_loss
@@ -418,28 +433,6 @@ export default function InputPanel() {
       return changed ? next : prev
     })
   }, [p02])
-
-  // ── 지진계수 자동 매핑 (KDS 17 10 00 단순 가이드) ────────────────
-  // 자동 모드일 때 표시할 값을 useMemo로 계산. setState 부작용 없음.
-  const autoKh = useMemo(() => {
-    if (p03.F.kh_manual || !p03.F.seismic_on) return p03.F.kh
-    const Z: Record<string, number> = { I: 0.11, II: 0.07 }
-    const S: Record<string, number> = { S1: 1.0, S2: 1.4, S3: 1.6, S4: 1.8, S5: 2.0 }
-    const I: Record<string, number> = { '500': 1.0, '1000': 1.4, '2400': 2.0 }
-    return +(Z[p03.F.seismic_zone] * S[p03.F.soil_class] * I[p03.F.return_period]).toFixed(3)
-  }, [p03.F.kh_manual, p03.F.seismic_on, p03.F.seismic_zone,
-      p03.F.soil_class, p03.F.return_period, p03.F.kh])
-  const autoKv = useMemo(() =>
-    p03.F.kh_manual ? p03.F.kv : +(autoKh / 2).toFixed(3),
-    [p03.F.kh_manual, p03.F.kv, autoKh])
-  // 자동값이 바뀌면 P03.F.kh / kv 동기화 (외부 상태 sync)
-  useEffect(() => {
-    if (p03.F.kh_manual || !p03.F.seismic_on) return
-    if (p03.F.kh === autoKh && p03.F.kv === autoKv) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setP03(prev => ({ ...prev, F: { ...prev.F, kh: autoKh, kv: autoKv,
-      _origin: { ...prev.F._origin, kh: 'auto', kv: 'auto' } } }))
-  }, [autoKh, autoKv, p03.F.kh_manual, p03.F.seismic_on, p03.F.kh, p03.F.kv])
 
   // ── 헬퍼: 섹션별 setter (얕은 머지) ──────────────────────────────
   const updA = <K extends keyof SectionA>(k: K, v: SectionA[K], confirm = true) =>
@@ -538,14 +531,26 @@ export default function InputPanel() {
             <NumInput value={p03.A.t} onChange={v => updA('t', v)} unit="mm" step={1} />
           </FieldRow>
 
-          <FieldRow label="해석 단위폭 b" prov={p03.A._origin.b}
+          <FieldRow label="패널 폭 B_panel" prov={p03.A._origin.b}
             tooltip={{
-              effect: 'Phase 04-C 휨해석 단위폭 — 통상 1000mm 단위로 산정',
-              limit: '실무 표준 b = 1000 mm 사용',
-              source: 'KDS 14 20 : 2022 §6.5',
+              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
+              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인. Phase 01에서 수정.',
+              source: 'FHWA NHI-14-007 §5.3; KDS 14 30 : 2022 4.2.1; PWAS 지침서 §5-4',
             }}>
-            <NumInput value={p03.A.b} onChange={v => updA('b', v)} unit="mm" step={50} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                ...MONO, fontSize: 12, color: 'var(--text-1)',
+                background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+                borderRadius: 2, padding: '4px 10px',
+              }}>{p03.A.b} mm</div>
+              <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>Phase 01에서 수정</span>
+            </div>
           </FieldRow>
+
+          <DerivedRow label="패널 높이 h_panel" formula="Phase 01 이월"
+            value={p01.panelHeight.toFixed(2)} unit="m" />
+          <DerivedRow label="총 벽체 높이 H" formula="Σ(패널수 × h_panel)"
+            value={p01.height.toFixed(2)} unit="m" />
 
           <FieldRow label="설계 피복 c (도면)" prov={p03.A._origin.c_design}
             tooltip={{
@@ -606,10 +611,13 @@ export default function InputPanel() {
           <FieldRow label="설계기준강도 f'ck" prov={p03.B._origin.fck_design}
             tooltip={{
               effect: "Phase 04-C 단면강도 — M_n에 비례. 코어 미실측 시 '설계×감소' 모드 활용",
-              limit: 'PSP/PPP 패널 통상 40~50 MPa',
-              source: 'KDS 14 30 : 2022 §4.1; Phase 02-C 자동 이월',
+              limit: 'PSP/PPP 패널 통상 40~50 MPa. Phase 01 기본정보에서 입력한 값이 자동 이월됩니다.',
+              source: 'KDS 14 30 : 2022 §4.1; Phase 01 기본정보 자동 이월',
             }}>
-            <NumInput value={p03.B.fck_design} onChange={v => updB('fck_design', v)} unit="MPa" step={1} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <NumInput value={p03.B.fck_design} onChange={v => updB('fck_design', v)} unit="MPa" step={1} />
+              <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>← Phase 01 이월</span>
+            </div>
           </FieldRow>
 
           <FieldRow label="코어 압축강도 f'c" prov={p03.B._origin.fck_core}
@@ -700,6 +708,7 @@ export default function InputPanel() {
               ]} />
           </FieldRow>
 
+          {p01.method !== 'PSP' && (
           <FieldRow label="앵커 T_0 / T_res" prov={p03.C._origin.Tres_anchor}
             tooltip={{
               effect: 'Phase 04-B 패널 휨모멘트 산정의 핵심 입력 — Phase 02-D 자동 이월',
@@ -712,7 +721,9 @@ export default function InputPanel() {
               <NumInput value={p03.C.Tres_anchor} onChange={v => updC('Tres_anchor', v)} unit="kN" step={5} width={75} />
             </div>
           </FieldRow>
+          )}
 
+          {p01.method !== 'PPP' && (
           <FieldRow label="네일 T_0 / T_res" prov={p03.C._origin.Tres_nail}
             tooltip={{
               effect: 'Phase 04-B 펀칭전단 검토 입력 — Phase 02-D 자동 이월',
@@ -725,6 +736,7 @@ export default function InputPanel() {
               <NumInput value={p03.C.Tres_nail} onChange={v => updC('Tres_nail', v)} unit="kN" step={5} width={75} />
             </div>
           </FieldRow>
+          )}
 
           {/* 추정 모드일 때만 손실율 6항 표시 */}
           {p03.C.Tres_method === 'estimated' && (
@@ -782,6 +794,7 @@ export default function InputPanel() {
           </FieldRow>
 
           <ReinfTable tiers={p03.D.tiers} mode={p03.D.tierMode}
+            tierMethods={p01.tierMethods}
             onCellChange={(i, k, v) => updTier<ReinfTier>('D', i, k, v)}
             onUniformChange={(k, v) =>
               setP03(prev => ({ ...prev, D: { ...prev.D, tiers: prev.D.tiers.map(t => ({ ...t, [k]: v })) } }))} />
@@ -789,6 +802,32 @@ export default function InputPanel() {
           {/* ══ E. 지반 정수 ════════════════════════════════════════ */}
           <SectionHead code="E" title="지반 정수" sub="→ Phase 04-A Coulomb·활동·전도·지지력"
             focused={focusSec === 'E'} onClick={() => setFocusSec('E')} />
+
+          {/* Coulomb Ka 파라미터 요약 — Phase 01 이월값 포함 */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+            gap: 4, marginBottom: 10,
+            background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+            borderRadius: 3, padding: '6px 8px',
+          }}>
+            {[
+              { label: 'β = θ (배면경사)', value: `${p01.slopeAngle}°`, note: '← Phase 01', highlight: true },
+              { label: 'α (벽면경사)', value: '90°', note: '수직벽 고정', highlight: false },
+              { label: 'φ (내부마찰각)', value: `${p03.E.tiers[0]?.phi ?? '—'}°`, note: '아래 입력', highlight: false },
+              { label: 'δ/φ 비', value: `${p03.E.tiers[0]?.delta_ratio ?? '—'}`, note: '아래 입력', highlight: false },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>{item.label}</span>
+                <span style={{
+                  ...MONO, fontSize: 12, fontWeight: 700,
+                  color: item.highlight ? 'var(--accent)' : 'var(--text-1)',
+                }}>{item.value}</span>
+                <span style={{ ...KR, fontSize: 8, color: item.highlight ? 'var(--accent)' : 'var(--text-3)' }}>
+                  {item.note}
+                </span>
+              </div>
+            ))}
+          </div>
 
           <FieldRow label="입력 모드"
             tooltip={{
@@ -810,7 +849,7 @@ export default function InputPanel() {
               setP03(prev => ({ ...prev, E: { ...prev.E, tiers: prev.E.tiers.map(t => ({ ...t, [k]: v })) } }))} />
 
           {/* ══ F. 하중 조건 ════════════════════════════════════════ */}
-          <SectionHead code="F" title="하중 조건 (상재·수위·지진)" sub="→ Phase 04-A Pa, M-O 토압"
+          <SectionHead code="F" title="하중 조건 (상재·지하수위)" sub="→ Phase 04-A 토압·지지력"
             focused={focusSec === 'F'} onClick={() => setFocusSec('F')} />
 
           <FieldRow label="상재하중 종류"
@@ -846,102 +885,6 @@ export default function InputPanel() {
             }}>
             <NumInput value={p03.F.gwl} onChange={v => updF('gwl', v)} unit="m" step={0.1} min={-99} />
           </FieldRow>
-
-          <FieldRow label="지진 검토" prov={p03.F._origin.seismic_on}
-            tooltip={{
-              effect: 'Phase 04-A Mononobe-Okabe 토압 적용 여부',
-              limit: 'KDS 17 10 00 — 1종/2종 시설물은 내진검토 의무',
-              source: 'KDS 17 10 00 : 2024',
-            }}>
-            <RadioGroup value={p03.F.seismic_on ? 'on' : 'off'}
-              onChange={v => updF('seismic_on', v === 'on')}
-              options={[{ value: 'on', label: '검토' }, { value: 'off', label: '미검토' }]} />
-          </FieldRow>
-
-          {p03.F.seismic_on && (
-            <>
-              <FieldRow label="지진구역 Z"
-                tooltip={{
-                  effect: 'k_h = Z·S·I 매핑의 Z항. 구역 I=0.11g, II=0.07g',
-                  limit: 'KDS 17 10 00 §4 — 행정구역 매핑표 확인',
-                  source: 'KDS 17 10 00 : 2024 §4',
-                }}>
-                <RadioGroup value={p03.F.seismic_zone} onChange={v => updF('seismic_zone', v)}
-                  options={[
-                    { value: 'I',  label: 'I (0.11g)' },
-                    { value: 'II', label: 'II (0.07g)' },
-                  ]} />
-              </FieldRow>
-
-              <FieldRow label="지반등급 S"
-                tooltip={{
-                  effect: 'S1=1.0, S2=1.4, S3=1.6, S4=1.8, S5=2.0 (단주기)',
-                  limit: 'KDS 17 10 00 §4.2 — 평균 전단파속도 Vs30 기반 분류',
-                  source: 'KDS 17 10 00 : 2024 §4.2',
-                }}>
-                <select value={p03.F.soil_class}
-                  onChange={e => updF('soil_class', e.target.value as SectionF['soil_class'])}
-                  style={{ ...inputSt, padding: '4px 7px' }}>
-                  <option value="S1">S1 — 보통암 이상</option>
-                  <option value="S2">S2 — 연암 / 풍화암</option>
-                  <option value="S3">S3 — 매우 조밀 토사</option>
-                  <option value="S4">S4 — 단단~중간 토사</option>
-                  <option value="S5">S5 — 연약 토사</option>
-                </select>
-              </FieldRow>
-
-              <FieldRow label="재현주기 I"
-                tooltip={{
-                  effect: '500년=1.0, 1000년=1.4, 2400년=2.0',
-                  limit: 'KDS 17 10 00 §3 — 시설물 등급별 결정',
-                  source: 'KDS 17 10 00 : 2024 §3',
-                }}>
-                <RadioGroup value={p03.F.return_period} onChange={v => updF('return_period', v)}
-                  options={[
-                    { value: '500',  label: '500년' },
-                    { value: '1000', label: '1000년' },
-                    { value: '2400', label: '2400년' },
-                  ]} />
-              </FieldRow>
-
-              <FieldRow label="k_h 수동 입력"
-                tooltip={{
-                  effect: '특수 지반·단층 인근은 자동 매핑 사용 금지. 별도 정밀해석 후 수동 입력',
-                  limit: '진단기술사 판단 필요',
-                  source: 'KDS 11 80 20 : 2020 §4.2.2',
-                }}>
-                <RadioGroup value={p03.F.kh_manual ? 'yes' : 'no'}
-                  onChange={v => updF('kh_manual', v === 'yes')}
-                  options={[{ value: 'no', label: '자동' }, { value: 'yes', label: '수동' }]} />
-              </FieldRow>
-
-              {p03.F.kh_manual && (
-                <>
-                  <FieldRow label="수평 지진계수 k_h" prov={p03.F._origin.kh}
-                    tooltip={{
-                      effect: 'Phase 04-A M-O 토압 — k_h 0.05 변동에 토압 10% 이상 변동',
-                      limit: '통상 0.05~0.30',
-                      source: 'KDS 11 80 20 : 2020 §4.2.2',
-                    }}>
-                    <NumInput value={p03.F.kh} onChange={v => updF('kh', v)} unit="g" step={0.01} />
-                  </FieldRow>
-                  <FieldRow label="수직 지진계수 k_v" prov={p03.F._origin.kv}
-                    tooltip={{
-                      effect: 'M-O — 통상 k_v = k_h/2',
-                      limit: '통상 0~0.15',
-                      source: 'KDS 11 80 20 : 2020 §4.2.2',
-                    }}>
-                    <NumInput value={p03.F.kv} onChange={v => updF('kv', v)} unit="g" step={0.01} />
-                  </FieldRow>
-                </>
-              )}
-
-              {!p03.F.kh_manual && (
-                <DerivedRow label="자동 산정 k_h / k_v" formula="Z·S·I  /  k_h/2"
-                  value={`${p03.F.kh.toFixed(3)} / ${p03.F.kv.toFixed(3)}`} unit="g" />
-              )}
-            </>
-          )}
 
           {/* ══ G. 기초 폭 B (단별) ════════════════════════════════ */}
           <SectionHead code="G" title="★ 기초 폭 B (단별 레벨링 콘크리트)"
@@ -1056,6 +999,7 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
   tiers: ReinfTier[]; mode: 'uniform' | 'per-tier'
   onCellChange: (i: number, k: keyof ReinfTier, v: unknown) => void
   onUniformChange: (k: keyof ReinfTier, v: unknown) => void
+  tierMethods: ('PSP'|'PPP')[]   // Phase 01에서 동기화됨 — UI 참고용
 }) {
   const rows = mode === 'uniform' ? [tiers[0]] : tiers
   return (
@@ -1073,6 +1017,9 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
         if (!t) return null
         const update = (k: keyof ReinfTier, v: unknown) =>
           mode === 'uniform' ? onUniformChange(k, v) : onCellChange(i, k, v)
+        const methodLabel = t.reinf_type === 'nail' ? 'PSP-네일' : 'PPP-앵커'
+        const methodColor = t.reinf_type === 'nail' ? '#D97757' : '#4A7FA5'
+        const methodBg    = t.reinf_type === 'nail' ? '#FFF3EB' : '#EBF3FF'
         return (
           <div key={i} style={{
             display: 'grid',
@@ -1085,11 +1032,13 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
               border: '1px solid rgba(217,119,87,0.25)',
               borderRadius: 2, padding: '3px 0',
             }}>{mode === 'uniform' ? '전체' : i + 1}</div>
-            <select value={t.reinf_type} onChange={e => update('reinf_type', e.target.value)}
-              style={{ ...inputSt, fontSize: 10, padding: '3px 4px' }}>
-              <option value="nail">네일</option>
-              <option value="anchor">앵커</option>
-            </select>
+            {/* reinf_type: Phase 01 tierMethods에서 자동 결정 — 편집 불가 */}
+            <div title="Phase 01 공법 설정에서 수정" style={{
+              ...MONO, fontSize: 9, fontWeight: 700,
+              color: methodColor, background: methodBg,
+              border: `1px solid ${methodColor}`,
+              borderRadius: 2, padding: '3px 4px', textAlign: 'center' as const,
+            }}>{methodLabel}</div>
             <CellNum value={t.L} onChange={v => update('L', v)} step={0.5} />
             <CellNum value={t.d} onChange={v => update('d', v)} step={0.1} />
             <CellNum value={t.t_wall} onChange={v => update('t_wall', v)} step={0.5} />
@@ -1285,10 +1234,10 @@ const SECTION_CITES: Record<string, { title: string; formula: string; note: stri
     note: 'δ=φ/2 → 2φ/3로 바뀌면 Ka 약 5~8% 감소. c=5kPa만 있어도 활동 FS 0.2 이상 상승.',
   },
   F: {
-    title: 'KDS 11 80 20 §4.2.2 + KDS 17 10 00',
+    title: 'KDS 11 80 20 : 2020 §4.2.1 (상재하중·지하수위)',
     formula:
-      'k_h = Z · S · I\nk_v = k_h / 2\n\nθ_e = arctan(k_h / (1−k_v))\n\nKAE (Mononobe-Okabe): KDS 11 80 20 §4.2.2',
-    note: '자동 매핑은 일반 가이드. 단층 인근·특수 지반은 정밀해석 후 수동 입력 필수.',
+      '상재하중 가산:\n  ΔPa = q · H · Ka\n\n지하수위 발생 시:\n  u = γ_w · h_w  (정수압)\n  → Phase 04-A에서 토압에 가산',
+    note: '내진검토(Mononobe-Okabe)는 본 버전에서 제외. 향후 별도 모듈로 추가 예정.',
   },
   G: {
     title: 'KDS 11 80 20 : 2020 §4.4 (지지력)',
@@ -1408,8 +1357,6 @@ function KDSSideBoard({ focused, confidence, p03, derived }: {
           <Summary k="유효 d" v={`${derived.dEff.toFixed(1)} mm`} />
           <Summary k="T_res(앵커)" v={`${derived.tresFinalAnchor.toFixed(1)} kN`} />
           <Summary k="T_res(네일)" v={`${derived.tresFinalNail.toFixed(1)} kN`} />
-          <Summary k="k_h / k_v"
-            v={p03.F.seismic_on ? `${p03.F.kh.toFixed(3)} / ${p03.F.kv.toFixed(3)}` : '미검토'} />
           <Summary k="B_eff(1단)"
             v={`${Math.max(0, (p03.G.tiers[0]?.B ?? 0) - 2 * (p03.G.tiers[0]?.ds ?? 0)).toFixed(2)} m`} />
           <Summary k="γ / φ / c"

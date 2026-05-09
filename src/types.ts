@@ -24,12 +24,15 @@ export interface Phase01Output {
   docStatus: '' | 'full' | 'drawing-only' | 'partial' | 'none'
   stages: number
   slopeAngle: number
-  panelHeight: number       // m
+  panelHeight: number       // m — 단별 공통 패널 1장 높이
+  panelWidth: number        // mm — 패널 폭 B_panel (제조사 사양, Phase 03-A b와 동기화)
+  designFck: number         // MPa — 설계기준강도 (도면 확인값, Phase 03-B fck_design과 동기화)
   wallThick: number         // m
   length: number            // m
   height: number            // m  (역산 H)
-  tierPanels: number[]      // 단별 패널 수
-  tierBerms: number[]       // 단별 소단 폭 (m)
+  tierPanels: number[]            // 단별 패널 수
+  tierBerms: number[]             // 단별 소단 폭 (m)
+  tierMethods: ('PSP'|'PPP')[]   // 단별 공법 (혼용 시 단마다 다름; 비혼용 시 전단 동일)
 }
 
 // ── Phase 02 출력 (현장조사 측정값) ───────────────────────────────
@@ -48,7 +51,7 @@ export interface Phase02Output {
   coverDepth: string        // mm
   // C. Core
   coreFck: string           // MPa
-  designFck: string         // MPa
+  // designFck는 Phase 01에서 관리 (도면 확인값 — 현장 측정값 아님)
   // D. Lift-off
   liftoffNail: string       // kN
   initNail: string
@@ -76,7 +79,7 @@ export type ConfirmMap<T> = { [K in keyof T]?: boolean }
 // A. 단면·배근
 export interface SectionA {
   t: number              // 패널 두께 (mm)
-  b: number              // 해석폭 (mm)
+  b: number              // 패널 폭 B_panel (mm) — 패널 1장 실제 폭, 제조사 사양 확인. 단위 m 해석 아님.
   c_design: number       // 설계 피복 (mm)
   c_act: number          // 실측 피복 (mm)
   d_main: string         // 주철근 (예: D13)
@@ -154,19 +157,12 @@ export interface SectionE {
   tiers: SoilTier[]
 }
 
-// F. 하중 조건
+// F. 하중 조건 (내진검토 제외 — 향후 별도 모듈로 추가 예정)
 export interface SectionF {
   q_surcharge: number       // kN/m²
   q_type: 'vehicle' | 'structure' | 'none'
   gwl: number               // m (저면 기준, -99 = 없음)
   gwl_ref: 'base' | 'top'
-  seismic_on: boolean
-  seismic_zone: 'I' | 'II'
-  soil_class: 'S1' | 'S2' | 'S3' | 'S4' | 'S5'
-  return_period: '500' | '1000' | '2400'
-  kh_manual: boolean
-  kh: number                // g
-  kv: number                // g
   _origin: OriginMap<SectionF>
 }
 
