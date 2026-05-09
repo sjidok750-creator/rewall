@@ -128,8 +128,11 @@ export interface SectionC {
 export interface ReinfTier {
   reinf_type: 'nail' | 'anchor'
   L: number              // 길이 (m)
-  d: number              // 외경 (mm)
-  t_wall: number         // 강관 두께 (mm) — 강관네일 전용
+  d: number              // 외경 (mm) — 네일: 이형철근 공칭경, 앵커: 강관 외경
+  t_wall: number         // 강관 두께 (mm) — 강관네일 전용 (이형철근=0)
+  D_DH: number           // 천공경 (mm) — 인발저항 계산 핵심 (네일 90~110, 앵커 100~150)
+  c_plate: number        // 지압판 변길이 (mm) — 펀칭전단 임계둘레 산정 (네일 150, 앵커 200)
+  A_strand: number       // PC강연선 총 단면적 (mm²) — 앵커 전용 (2×∅15.2=277.4, 3×=416.1)
   fy_nail: number        // 이형철근/강관 항복강도 (MPa) — 네일 전용 (SD400: 400)
   fpy_strand: number     // PC강연선 항복강도 (MPa) — 앵커 전용 (1580)
   fpu_strand: number     // PC강연선 인장강도 (MPa) — 앵커 전용 (1860)
@@ -138,7 +141,7 @@ export interface ReinfTier {
   alpha: number          // 경사각 (°)
   fcg: number            // 그라우트 강도 (MPa)
   Lf: number             // 자유장 (앵커, m)
-  Lb: number             // 정착장 (앵커, m)
+  Lb: number             // 정착장/유효결합장 (m) — 앵커: 정착장, 네일: 파괴면 외측 유효결합장
 }
 export interface SectionD {
   tierMode: 'uniform' | 'per-tier'
@@ -190,4 +193,19 @@ export interface Phase03Output {
   E: SectionE
   F: SectionF
   G: SectionG
+}
+
+// ── Phase 04 수동입력 (전체안정 — 외부 프로그램 결과) ──────────────────
+export interface GlobalStabilityEntry {
+  sta: string            // 단면 위치 (예: Sta.0+020)
+  program: string        // 사용 프로그램 (SLOPE/W, TALREN 등)
+  method: string         // 해석방법 (Bishop, Spencer 등)
+  FS_static: number      // 평상시 최소 FS
+  FS_seismic: number     // 지진시 최소 FS (-1 = 미검토)
+  remark: string         // 비고
+}
+
+export interface Phase04Manual {
+  entries: GlobalStabilityEntry[]
+  reinfIncluded: boolean  // 보강재 저항력 반영 여부
 }

@@ -7,6 +7,7 @@ import PlaceholderPanel from './components/modules/PlaceholderPanel'
 import BasicInfoPanel from './components/modules/BasicInfoPanel'
 import SiteSurveyPanel from './components/modules/SiteSurveyPanel'
 import InputPanel from './components/modules/InputPanel'
+import StabilityPanel from './components/modules/StabilityPanel'
 import { PwasProvider } from './state/PwasContext'
 
 function ModulePanel({ id }: { id: ModuleId }) {
@@ -19,7 +20,7 @@ function ModulePanel({ id }: { id: ModuleId }) {
       <div style={show('basic-info')}><BasicInfoPanel /></div>
       <div style={show('site-survey')}><SiteSurveyPanel /></div>
       <div style={show('input')}><InputPanel /></div>
-      <div style={show('stability')}><PlaceholderPanel phase="PHASE 04" title="안정성 검토" /></div>
+      <div style={show('stability')}><StabilityPanel /></div>
       <div style={show('grade')}><PlaceholderPanel phase="PHASE 05" title="등급 판정" /></div>
       <div style={show('report')}><PlaceholderPanel phase="PHASE 06" title="출력" /></div>
     </>

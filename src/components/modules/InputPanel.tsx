@@ -248,6 +248,9 @@ const DEFAULT_REINF = (kind: 'nail' | 'anchor' = 'nail'): ReinfTier => ({
   reinf_type: kind,
   L: kind === 'nail' ? 6 : 11,
   d: 76.3, t_wall: 5.0,
+  D_DH: kind === 'nail' ? 100 : 130,   // 천공경 (mm)
+  c_plate: kind === 'nail' ? 150 : 200, // 지압판 변길이 (mm)
+  A_strand: kind === 'nail' ? 0 : 277.4, // 강연선 총 단면적 (mm²) — 앵커 전용
   fy_nail: 400,          // SD400 이형철근 — 네일 전용
   fpy_strand: 1580,      // SWPC7B PC강연선 항복 — 앵커 전용
   fpu_strand: 1860,      // SWPC7B PC강연선 인장 — 앵커 전용
@@ -294,7 +297,7 @@ const DEFAULT_P03 = (stages: number): Phase03Output => ({
 // 4. 메인 컴포넌트
 // ═══════════════════════════════════════════════════════════════════
 export default function InputPanel() {
-  const { p01, p02 } = usePwas()
+  const { p01, p02, setP03snap } = usePwas()
   const [p03, setP03] = useState<Phase03Output>(() => DEFAULT_P03(p01.stages || 4))
   const [focusSec, setFocusSec] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'>('A')
 
@@ -436,6 +439,9 @@ export default function InputPanel() {
       return changed ? next : prev
     })
   }, [p02])
+
+  // ── p03 → context publish ────────────────────────────────────────
+  useEffect(() => { setP03snap(p03) }, [p03, setP03snap])
 
   // ── 헬퍼: 섹션별 setter (얕은 머지) ──────────────────────────────
   const updA = <K extends keyof SectionA>(k: K, v: SectionA[K], confirm = true) =>
@@ -823,6 +829,12 @@ export default function InputPanel() {
             onUniformChange={(k, v) =>
               setP03(prev => ({ ...prev, D: { ...prev.D, tiers: prev.D.tiers.map(t => ({ ...t, [k]: v })) } }))} />
 
+          {/* 추가 제원 — 펀칭전단·인발 계산 필수 입력 */}
+          <ReinfDetailTable tiers={p03.D.tiers} mode={p03.D.tierMode}
+            onCellChange={(i, k, v) => updTier<ReinfTier>('D', i, k, v)}
+            onUniformChange={(k, v) =>
+              setP03(prev => ({ ...prev, D: { ...prev.D, tiers: prev.D.tiers.map(t => ({ ...t, [k]: v })) } }))} />
+
           {/* ══ E. 지반 정수 ════════════════════════════════════════ */}
           <SectionHead code="E" title="지반 정수" sub="→ Phase 04-A Coulomb·활동·전도·지지력"
             focused={focusSec === 'E'} onClick={() => setFocusSec('E')} />
@@ -1055,13 +1067,79 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
             <CellNum value={t.alpha} onChange={v => update('alpha', v)} step={1} />
             <CellNum value={t.Lf} onChange={v => update('Lf', v)} step={0.5}
               disabled={t.reinf_type === 'nail'} />
-            <CellNum value={t.Lb} onChange={v => update('Lb', v)} step={0.5}
-              disabled={t.reinf_type === 'nail'} />
+            <CellNum value={t.Lb} onChange={v => update('Lb', v)} step={0.5} />
           </div>
         )
       })}
       <div style={{ ...KR, fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>
         그라우트 f'cg 통상 24 MPa | 네일 fy_nail: SD400=400 MPa, STK강관=350 MPa | 앵커 fpy/fpu: SWPC7B=1580/1860 MPa (KS D 7002)
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 7b. 보강재 추가 제원 표 (D_DH · c_plate · A_strand · 강도 · f'cg)
+// ═══════════════════════════════════════════════════════════════════
+function ReinfDetailTable({ tiers, mode, onCellChange, onUniformChange }: {
+  tiers: ReinfTier[]; mode: 'uniform' | 'per-tier'
+  onCellChange: (i: number, k: keyof ReinfTier, v: unknown) => void
+  onUniformChange: (k: keyof ReinfTier, v: unknown) => void
+}) {
+  const rows = mode === 'uniform' ? [tiers[0]] : tiers
+  return (
+    <div style={{ marginTop: -6, marginBottom: 12 }}>
+      <div style={{
+        ...MONO, fontSize: 8, color: 'var(--text-3)',
+        background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+        borderRadius: '0 0 3px 3px', padding: '3px 6px', marginBottom: 4,
+      }}>
+        ▼ 추가 제원 (펀칭전단·인발저항 계산 필수)
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '34px 70px 70px 70px 70px 70px 70px',
+        gap: 4, marginBottom: 4,
+      }}>
+        {['단', 'D_DH (mm)', 'c_plate(mm)', 'A_s (mm²)', 'fy_nail(MPa)', 'fpy(MPa)', "f'cg(MPa)"].map(h => (
+          <div key={h} style={{ ...MONO, fontSize: 8, color: 'var(--text-3)', textAlign: 'center' }}>{h}</div>
+        ))}
+      </div>
+      {rows.map((t, i) => {
+        if (!t) return null
+        const update = (k: keyof ReinfTier, v: unknown) =>
+          mode === 'uniform' ? onUniformChange(k, v) : onCellChange(i, k, v)
+        const isNail = t.reinf_type === 'nail'
+        return (
+          <div key={i} style={{
+            display: 'grid',
+            gridTemplateColumns: '34px 70px 70px 70px 70px 70px 70px',
+            gap: 4, alignItems: 'center', marginBottom: 3,
+          }}>
+            <div style={{
+              ...MONO, fontSize: 9, fontWeight: 700, color: 'var(--accent)',
+              textAlign: 'center', background: 'var(--accent-bg)',
+              border: '1px solid rgba(217,119,87,0.25)',
+              borderRadius: 2, padding: '3px 0',
+            }}>{mode === 'uniform' ? '전체' : i + 1}</div>
+            <CellNum value={t.D_DH} onChange={v => update('D_DH', v)} step={5} />
+            <CellNum value={t.c_plate} onChange={v => update('c_plate', v)} step={10} />
+            {/* A_strand: 앵커 전용 — 네일은 0 고정 */}
+            <CellNum value={t.A_strand} onChange={v => update('A_strand', v)} step={1}
+              disabled={isNail} />
+            {/* fy_nail: 네일 전용 (SD400=400) */}
+            <CellNum value={t.fy_nail} onChange={v => update('fy_nail', v)} step={10}
+              disabled={!isNail} />
+            {/* fpy_strand: 앵커 전용 (SWPC7B=1580) */}
+            <CellNum value={t.fpy_strand} onChange={v => update('fpy_strand', v)} step={10}
+              disabled={isNail} />
+            <CellNum value={t.fcg} onChange={v => update('fcg', v)} step={1} />
+          </div>
+        )
+      })}
+      <div style={{ ...KR, fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>
+        D_DH: 천공경 (네일 90~110 mm, 앵커 100~150 mm) | c_plate: 지압판 변길이 (네일 150, 앵커 200 mm) |
+        A_s: 강연선 총단면적 (앵커 전용: 2×∅15.2=277.4 mm², 3×∅15.2=416.1 mm²)
       </div>
     </div>
   )
