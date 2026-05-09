@@ -24,7 +24,9 @@ export interface Phase01Output {
   docStatus: '' | 'full' | 'drawing-only' | 'partial' | 'none'
   stages: number
   slopeAngle: number
-  panelHeight: number       // m
+  panelHeight: number       // m — 단별 공통 패널 1장 높이
+  panelWidth: number        // mm — 패널 폭 B_panel (제조사 사양, Phase 03-A b와 동기화)
+  designFck: number         // MPa — 설계기준강도 (도면 확인값, Phase 03-B fck_design과 동기화)
   wallThick: number         // m
   length: number            // m
   height: number            // m  (역산 H)
@@ -49,7 +51,7 @@ export interface Phase02Output {
   coverDepth: string        // mm
   // C. Core
   coreFck: string           // MPa
-  designFck: string         // MPa
+  // designFck는 Phase 01에서 관리 (도면 확인값 — 현장 측정값 아님)
   // D. Lift-off
   liftoffNail: string       // kN
   initNail: string

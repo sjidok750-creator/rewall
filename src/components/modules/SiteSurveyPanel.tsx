@@ -213,7 +213,7 @@ export default function SiteSurveyPanel() {
 
   // ── C. 코어 압축강도 ─────────────────────────────────────────────
   const [coreFck, setCoreFck] = useState('')             // 코어 f'c (MPa)
-  const [designFck, setDesignFck] = useState('')         // 설계 f'ck (MPa)
+  // designFck는 Phase 01에서 관리 — p01.designFck 사용
 
   // ── D. Lift-off Test ──────────────────────────────────────────────
   const [liftoffNail, setLiftoffNail] = useState('')     // 네일 T_res (kN)
@@ -238,7 +238,7 @@ export default function SiteSurveyPanel() {
     setP02({
       crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
       schmidt, ultrasound, carbonation, coverDepth,
-      coreFck, designFck,
+      coreFck,
       liftoffNail, initNail, liftoffAnchor, initAnchor,
       gamma, phi, cohesion, groundMemo,
       levelCrack, levelScour, settlement,
@@ -246,15 +246,15 @@ export default function SiteSurveyPanel() {
   }, [
     crackWidth, corrosionLoss, scourDepth, displacement, drainBlock,
     schmidt, ultrasound, carbonation, coverDepth,
-    coreFck, designFck,
+    coreFck,
     liftoffNail, initNail, liftoffAnchor, initAnchor,
     gamma, phi, cohesion, groundMemo,
     levelCrack, levelScour, settlement, setP02,
   ])
 
   // ── 파생 계산 ────────────────────────────────────────────────────
-  const fckRatio = coreFck && designFck && Number(designFck) > 0
-    ? Number(coreFck) / Number(designFck) * 100 : null
+  const fckRatio = coreFck && p01.designFck > 0
+    ? Number(coreFck) / p01.designFck * 100 : null
 
   const nailRatio = liftoffNail && initNail && Number(initNail) > 0
     ? Number(liftoffNail) / Number(initNail) * 100 : null
@@ -404,12 +404,23 @@ export default function SiteSurveyPanel() {
           <NumOrNone value={coreFck} onChange={setCoreFck} noneLabel="미채취" unit="MPa" />
         </FieldRow>
 
-        <FieldRow label="설계기준강도 f'ck (도면)" tooltip={{
+        <FieldRow label="설계기준강도 f'ck" tooltip={{
           effect: "강도비 = f'c / f'ck 산정 기준 — 열화율 계산 및 Phase 03 보정계수 결정에 사용",
           limit: "PSP/PPP 패널 통상 f'ck = 40~50 MPa (KDS 14 30 프리스트레스트 콘크리트)",
-          source: 'KDS 14 30 : 2022 §4.1; 설계도면',
+          source: 'KDS 14 30 : 2022 §4.1; Phase 01 기본정보에서 입력',
         }}>
-          <NumOrNone value={designFck} onChange={setDesignFck} noneLabel="도면없음" unit="MPa" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              ...MONO, fontSize: 12, color: 'var(--text-1)',
+              background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+              borderRadius: 2, padding: '4px 10px',
+            }}>
+              {p01.designFck > 0 ? `${p01.designFck} MPa` : '— 미입력'}
+            </div>
+            <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>
+              Phase 01 기본정보에서 입력 → 자동 이월
+            </span>
+          </div>
         </FieldRow>
 
         {/* 강도비 계산 결과 */}

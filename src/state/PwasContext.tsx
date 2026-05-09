@@ -11,8 +11,8 @@ import type { Phase01Output, Phase02Output } from '../types'
 
 const DEFAULT_P01: Phase01Output = {
   method: '', construction: '', kds: '2020', docStatus: '',
-  stages: 4, slopeAngle: 75, panelHeight: 1.0, wallThick: 0.25,
-  length: 30, height: 8.0,
+  stages: 4, slopeAngle: 75, panelHeight: 1.0, panelWidth: 1200, designFck: 40,
+  wallThick: 0.25, length: 30, height: 8.0,
   tierPanels: [2, 2, 2, 2],
   tierBerms: [0.5, 0.5, 0.5, 0.5],
   tierMethods: ['PSP', 'PSP', 'PPP', 'PPP'],
@@ -21,7 +21,7 @@ const DEFAULT_P01: Phase01Output = {
 const DEFAULT_P02: Phase02Output = {
   crackWidth: '', corrosionLoss: '', scourDepth: '', displacement: '', drainBlock: '',
   schmidt: '', ultrasound: '', carbonation: '', coverDepth: '',
-  coreFck: '', designFck: '',
+  coreFck: '',
   liftoffNail: '', initNail: '', liftoffAnchor: '', initAnchor: '',
   gamma: '', phi: '', cohesion: '', groundMemo: '',
   levelCrack: '', levelScour: '', settlement: '',

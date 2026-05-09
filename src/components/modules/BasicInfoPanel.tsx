@@ -127,6 +127,8 @@ export default function BasicInfoPanel() {
   const [slopeAngle, setSlopeAngle] = useState(75)
   const [wallThick, setWallThick] = useState(0.25)
   const [panelHeight, setPanelHeight] = useState(1.0)
+  const [panelWidth, setPanelWidth] = useState(1200)
+  const [designFck, setDesignFck] = useState(40)
   const [length, setLength] = useState(30)
   const [tiers, setTiers] = useState<TierConfig[]>(Array.from({ length: 4 }, DEFAULT_TIER))
   const [tierMethods, setTierMethods] = useState<('PSP'|'PPP')[]>(['PSP', 'PSP', 'PPP', 'PPP'])
@@ -163,14 +165,14 @@ export default function BasicInfoPanel() {
       : tiers.map(() => (method === 'PPP' ? 'PPP' : 'PSP'))
     setP01({
       method, construction, kds, docStatus,
-      stages, slopeAngle, panelHeight, wallThick, length,
+      stages, slopeAngle, panelHeight, panelWidth, designFck, wallThick, length,
       height: totalPanels * panelHeight,
       tierPanels: tiers.map(t => t.panels),
       tierBerms: tiers.map(t => t.bermWidth),
       tierMethods: effectiveMethods,
     })
   }, [method, construction, kds, docStatus, stages, slopeAngle,
-      panelHeight, wallThick, length, tiers, tierMethods, setP01])
+      panelHeight, panelWidth, designFck, wallThick, length, tiers, tierMethods, setP01])
 
   const updateTier = (i: number, key: keyof TierConfig, val: number) =>
     setTiers(prev => prev.map((t, idx) => idx === i ? { ...t, [key]: val } : t))
@@ -257,8 +259,17 @@ export default function BasicInfoPanel() {
           <Field label="패널 두께 t">
             <NumInput value={wallThick} onChange={setWallThick} min={0.1} max={0.5} step={0.01} unit="m" />
           </Field>
-          <Field label="패널 높이" style={{ gridColumn: '1 / -1' }}>
+          <Field label="패널 높이">
             <NumInput value={panelHeight} onChange={setPanelHeight} min={0.3} max={4} step={0.1} unit="m" />
+          </Field>
+          <Field label="패널 폭 B_panel">
+            <NumInput value={panelWidth} onChange={setPanelWidth} min={500} max={3000} step={50} unit="mm" />
+          </Field>
+          <Field label="설계기준강도 f'ck" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <NumInput value={designFck} onChange={setDesignFck} min={18} max={80} step={1} unit="MPa" />
+              <span style={{ ...MONO, fontSize: 9, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>도면 확인값</span>
+            </div>
           </Field>
         </div>
 

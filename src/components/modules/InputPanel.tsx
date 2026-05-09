@@ -295,18 +295,22 @@ export default function InputPanel() {
   const [p03, setP03] = useState<Phase03Output>(() => DEFAULT_P03(p01.stages || 4))
   const [focusSec, setFocusSec] = useState<'A'|'B'|'C'|'D'|'E'|'F'|'G'>('A')
 
-  // ── Phase 01 stages 변경 시 D/E/G 단별 배열 길이 동기화 ──────────
-  // (외부 상태 → 내부 상태 sync — setState in effect 정당)
+  // ── Phase 01 stages/tierMethods 변경 시 D/E/G 단별 배열 동기화 ──
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setP03(prev => ({
-      ...prev,
-      D: { ...prev.D, tiers: resizeArr(prev.D.tiers, p01.stages, () =>
-            DEFAULT_REINF(p01.method === 'PPP' ? 'anchor' : 'nail')) },
-      E: { ...prev.E, tiers: resizeArr(prev.E.tiers, p01.stages, DEFAULT_SOIL) },
-      G: { ...prev.G, tiers: resizeArr(prev.G.tiers, p01.stages, DEFAULT_BASE) },
-    }))
-  }, [p01.stages, p01.method])
+    setP03(prev => {
+      const defaultKind = (i: number): 'nail'|'anchor' =>
+        (p01.tierMethods[i] ?? (p01.method === 'PPP' ? 'PPP' : 'PSP')) === 'PPP' ? 'anchor' : 'nail'
+      const newDTiers = resizeArr(prev.D.tiers, p01.stages, () => DEFAULT_REINF(defaultKind(prev.D.tiers.length)))
+        .map((t, i) => ({ ...t, reinf_type: defaultKind(i) as 'nail'|'anchor' }))
+      return {
+        ...prev,
+        D: { ...prev.D, tiers: newDTiers },
+        E: { ...prev.E, tiers: resizeArr(prev.E.tiers, p01.stages, DEFAULT_SOIL) },
+        G: { ...prev.G, tiers: resizeArr(prev.G.tiers, p01.stages, DEFAULT_BASE) },
+      }
+    })
+  }, [p01.stages, p01.method, p01.tierMethods])
 
   // ── Phase 01 wallThick → Section A.t 자동 이월 ──────────────────
   // (외부 상태 → 내부 상태 sync — setState in effect 정당)
@@ -323,6 +327,26 @@ export default function InputPanel() {
     })
   }, [p01.wallThick])
 
+  // ── Phase 01 panelWidth → Section A.b 자동 이월 ─────────────────
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setP03(prev => {
+      if (prev.A._confirmed.b) return prev
+      if (Math.abs(prev.A.b - p01.panelWidth) < 0.01) return prev
+      return { ...prev, A: { ...prev.A, b: p01.panelWidth, _origin: { ...prev.A._origin, b: 'drawing' } } }
+    })
+  }, [p01.panelWidth])
+
+  // ── Phase 01 designFck → Section B.fck_design 자동 이월 ─────────
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setP03(prev => {
+      if (prev.B._confirmed.fck_design) return prev
+      if (Math.abs(prev.B.fck_design - p01.designFck) < 0.01) return prev
+      return { ...prev, B: { ...prev.B, fck_design: p01.designFck, _origin: { ...prev.B._origin, fck_design: 'drawing' } } }
+    })
+  }, [p01.designFck])
+
   // ── Phase 02 → Phase 03 자동 이월 ───────────────────────────────
   // (외부 상태 → 내부 상태 sync — setState in effect 정당)
   useEffect(() => {
@@ -336,13 +360,6 @@ export default function InputPanel() {
       if (coreFck !== null && !prev.B._confirmed.fck_core && prev.B.fck_core !== coreFck) {
         next.B = { ...next.B, fck_core: coreFck, fck_use: 'measured',
           _origin: { ...next.B._origin, fck_core: 'phase02', fck_use: 'auto' } }
-        changed = true
-      }
-      // B. 설계 fck → fck_design (도면값)
-      const designFck = safeNum(p02.designFck)
-      if (designFck !== null && !prev.B._confirmed.fck_design && prev.B.fck_design !== designFck) {
-        next.B = { ...next.B, fck_design: designFck,
-          _origin: { ...next.B._origin, fck_design: 'phase02' } }
         changed = true
       }
       // B. 부식 단면감소 → rebar_loss
@@ -516,12 +533,24 @@ export default function InputPanel() {
 
           <FieldRow label="패널 폭 B_panel" prov={p03.A._origin.b}
             tooltip={{
-              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 단위 m(1000mm) 해석은 이 공법에 부적합. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
-              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인 필수. FHWA NHI-14-007 §5.3: 패널 1장 단위 해석 명시.',
+              effect: 'Phase 04-B/C 구조 검토 단위 — 패널 1장(B_panel×h_panel)이 독립 해석 단위. 펀칭전단 임계둘레 b_0, 휨강도 M_n 계산에 직접 사용.',
+              limit: 'PSP/PPP 패널 통상 B_panel = 1000~1500 mm. 제조사 시공도 확인. Phase 01에서 수정.',
               source: 'FHWA NHI-14-007 §5.3; KDS 14 30 : 2022 4.2.1; PWAS 지침서 §5-4',
             }}>
-            <NumInput value={p03.A.b} onChange={v => updA('b', v)} unit="mm" step={50} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                ...MONO, fontSize: 12, color: 'var(--text-1)',
+                background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+                borderRadius: 2, padding: '4px 10px',
+              }}>{p03.A.b} mm</div>
+              <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>Phase 01에서 수정</span>
+            </div>
           </FieldRow>
+
+          <DerivedRow label="패널 높이 h_panel" formula="Phase 01 이월"
+            value={p01.panelHeight.toFixed(2)} unit="m" />
+          <DerivedRow label="총 벽체 높이 H" formula="Σ(패널수 × h_panel)"
+            value={p01.height.toFixed(2)} unit="m" />
 
           <FieldRow label="설계 피복 c (도면)" prov={p03.A._origin.c_design}
             tooltip={{
@@ -582,10 +611,13 @@ export default function InputPanel() {
           <FieldRow label="설계기준강도 f'ck" prov={p03.B._origin.fck_design}
             tooltip={{
               effect: "Phase 04-C 단면강도 — M_n에 비례. 코어 미실측 시 '설계×감소' 모드 활용",
-              limit: 'PSP/PPP 패널 통상 40~50 MPa',
-              source: 'KDS 14 30 : 2022 §4.1; Phase 02-C 자동 이월',
+              limit: 'PSP/PPP 패널 통상 40~50 MPa. Phase 01 기본정보에서 입력한 값이 자동 이월됩니다.',
+              source: 'KDS 14 30 : 2022 §4.1; Phase 01 기본정보 자동 이월',
             }}>
-            <NumInput value={p03.B.fck_design} onChange={v => updB('fck_design', v)} unit="MPa" step={1} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <NumInput value={p03.B.fck_design} onChange={v => updB('fck_design', v)} unit="MPa" step={1} />
+              <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>← Phase 01 이월</span>
+            </div>
           </FieldRow>
 
           <FieldRow label="코어 압축강도 f'c" prov={p03.B._origin.fck_core}
@@ -762,6 +794,7 @@ export default function InputPanel() {
           </FieldRow>
 
           <ReinfTable tiers={p03.D.tiers} mode={p03.D.tierMode}
+            tierMethods={p01.tierMethods}
             onCellChange={(i, k, v) => updTier<ReinfTier>('D', i, k, v)}
             onUniformChange={(k, v) =>
               setP03(prev => ({ ...prev, D: { ...prev.D, tiers: prev.D.tiers.map(t => ({ ...t, [k]: v })) } }))} />
@@ -769,6 +802,32 @@ export default function InputPanel() {
           {/* ══ E. 지반 정수 ════════════════════════════════════════ */}
           <SectionHead code="E" title="지반 정수" sub="→ Phase 04-A Coulomb·활동·전도·지지력"
             focused={focusSec === 'E'} onClick={() => setFocusSec('E')} />
+
+          {/* Coulomb Ka 파라미터 요약 — Phase 01 이월값 포함 */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+            gap: 4, marginBottom: 10,
+            background: 'var(--bg-sidebar)', border: '1px solid var(--border)',
+            borderRadius: 3, padding: '6px 8px',
+          }}>
+            {[
+              { label: 'β = θ (배면경사)', value: `${p01.slopeAngle}°`, note: '← Phase 01', highlight: true },
+              { label: 'α (벽면경사)', value: '90°', note: '수직벽 고정', highlight: false },
+              { label: 'φ (내부마찰각)', value: `${p03.E.tiers[0]?.phi ?? '—'}°`, note: '아래 입력', highlight: false },
+              { label: 'δ/φ 비', value: `${p03.E.tiers[0]?.delta_ratio ?? '—'}`, note: '아래 입력', highlight: false },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ ...KR, fontSize: 9, color: 'var(--text-3)' }}>{item.label}</span>
+                <span style={{
+                  ...MONO, fontSize: 12, fontWeight: 700,
+                  color: item.highlight ? 'var(--accent)' : 'var(--text-1)',
+                }}>{item.value}</span>
+                <span style={{ ...KR, fontSize: 8, color: item.highlight ? 'var(--accent)' : 'var(--text-3)' }}>
+                  {item.note}
+                </span>
+              </div>
+            ))}
+          </div>
 
           <FieldRow label="입력 모드"
             tooltip={{
@@ -940,6 +999,7 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
   tiers: ReinfTier[]; mode: 'uniform' | 'per-tier'
   onCellChange: (i: number, k: keyof ReinfTier, v: unknown) => void
   onUniformChange: (k: keyof ReinfTier, v: unknown) => void
+  tierMethods: ('PSP'|'PPP')[]   // Phase 01에서 동기화됨 — UI 참고용
 }) {
   const rows = mode === 'uniform' ? [tiers[0]] : tiers
   return (
@@ -957,6 +1017,9 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
         if (!t) return null
         const update = (k: keyof ReinfTier, v: unknown) =>
           mode === 'uniform' ? onUniformChange(k, v) : onCellChange(i, k, v)
+        const methodLabel = t.reinf_type === 'nail' ? 'PSP-네일' : 'PPP-앵커'
+        const methodColor = t.reinf_type === 'nail' ? '#D97757' : '#4A7FA5'
+        const methodBg    = t.reinf_type === 'nail' ? '#FFF3EB' : '#EBF3FF'
         return (
           <div key={i} style={{
             display: 'grid',
@@ -969,11 +1032,13 @@ function ReinfTable({ tiers, mode, onCellChange, onUniformChange }: {
               border: '1px solid rgba(217,119,87,0.25)',
               borderRadius: 2, padding: '3px 0',
             }}>{mode === 'uniform' ? '전체' : i + 1}</div>
-            <select value={t.reinf_type} onChange={e => update('reinf_type', e.target.value)}
-              style={{ ...inputSt, fontSize: 10, padding: '3px 4px' }}>
-              <option value="nail">네일</option>
-              <option value="anchor">앵커</option>
-            </select>
+            {/* reinf_type: Phase 01 tierMethods에서 자동 결정 — 편집 불가 */}
+            <div title="Phase 01 공법 설정에서 수정" style={{
+              ...MONO, fontSize: 9, fontWeight: 700,
+              color: methodColor, background: methodBg,
+              border: `1px solid ${methodColor}`,
+              borderRadius: 2, padding: '3px 4px', textAlign: 'center' as const,
+            }}>{methodLabel}</div>
             <CellNum value={t.L} onChange={v => update('L', v)} step={0.5} />
             <CellNum value={t.d} onChange={v => update('d', v)} step={0.1} />
             <CellNum value={t.t_wall} onChange={v => update('t_wall', v)} step={0.5} />
