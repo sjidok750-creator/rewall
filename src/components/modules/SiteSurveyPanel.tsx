@@ -193,7 +193,10 @@ function WarnBadge({ show, text, level = 'warn' }: { show: boolean; text: string
 // SiteSurveyPanel
 // ═══════════════════════════════════════════════════════════════════
 export default function SiteSurveyPanel() {
-  const { setP02 } = usePwas()
+  const { setP02, p01 } = usePwas()
+
+  const showNail   = p01.method !== 'PPP'
+  const showAnchor = p01.method !== 'PSP'
 
   // ── A. 외관조사 — 안전성평가 계산에 직접 반영되는 측정값 ─────────
   const [crackWidth, setCrackWidth] = useState('')       // 최대 균열폭 (mm)
@@ -438,6 +441,7 @@ export default function SiteSurveyPanel() {
           KDS 11 70 15 : 2020 §5.4 — 정기 점검 시 Lift-off Test 권장.
         </div>
 
+        {showNail && (<>
         <FieldRow label="소일네일 T_res" tooltip={{
           effect: 'Phase 04-B 펀칭전단: V_u = T_res·cosα ≤ φ·v_c·b_o·d. T_res가 작을수록 FS 악화. KDS 11 70 15 §5.3',
           limit: 'T_res/T_0 ≥ 0.70: 정상 / 0.50~0.70: 주의 / < 0.50: FS 부족 가능, 재긴장 또는 보강 검토',
@@ -469,7 +473,9 @@ export default function SiteSurveyPanel() {
             </span>
           </div>
         )}
+        </>)}
 
+        {showAnchor && (<>
         <FieldRow label="영구앵커 T_res" tooltip={{
           effect: 'Phase 04-B 패널 휨: M_u = T_res·e_s/n_s ≤ φ·M_n. 앵커 T_res 감소가 패널 휨모멘트 검토에 직접 영향',
           limit: 'T_res/T_0 ≥ 0.80: 정상 / 0.60~0.80: 주의 / < 0.60: 재긴장 또는 보강 검토 (PTI DC80.3-12 §7)',
@@ -501,6 +507,7 @@ export default function SiteSurveyPanel() {
             </span>
           </div>
         )}
+        </>)}
 
         {/* ══ E. 지반조사자료 ════════════════════════════════════════ */}
         <SectionHead code="E" title="지반조사자료" sub="→ Phase 04-A Coulomb 토압 / 활동·전도·지지력 FS" />

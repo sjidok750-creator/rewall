@@ -676,6 +676,7 @@ export default function InputPanel() {
               ]} />
           </FieldRow>
 
+          {p01.method !== 'PSP' && (
           <FieldRow label="앵커 T_0 / T_res" prov={p03.C._origin.Tres_anchor}
             tooltip={{
               effect: 'Phase 04-B 패널 휨모멘트 산정의 핵심 입력 — Phase 02-D 자동 이월',
@@ -688,7 +689,9 @@ export default function InputPanel() {
               <NumInput value={p03.C.Tres_anchor} onChange={v => updC('Tres_anchor', v)} unit="kN" step={5} width={75} />
             </div>
           </FieldRow>
+          )}
 
+          {p01.method !== 'PPP' && (
           <FieldRow label="네일 T_0 / T_res" prov={p03.C._origin.Tres_nail}
             tooltip={{
               effect: 'Phase 04-B 펀칭전단 검토 입력 — Phase 02-D 자동 이월',
@@ -701,6 +704,7 @@ export default function InputPanel() {
               <NumInput value={p03.C.Tres_nail} onChange={v => updC('Tres_nail', v)} unit="kN" step={5} width={75} />
             </div>
           </FieldRow>
+          )}
 
           {/* 추정 모드일 때만 손실율 6항 표시 */}
           {p03.C.Tres_method === 'estimated' && (

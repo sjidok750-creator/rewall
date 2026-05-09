@@ -28,8 +28,9 @@ export interface Phase01Output {
   wallThick: number         // m
   length: number            // m
   height: number            // m  (역산 H)
-  tierPanels: number[]      // 단별 패널 수
-  tierBerms: number[]       // 단별 소단 폭 (m)
+  tierPanels: number[]            // 단별 패널 수
+  tierBerms: number[]             // 단별 소단 폭 (m)
+  tierMethods: ('PSP'|'PPP')[]   // 단별 공법 (혼용 시 단마다 다름; 비혼용 시 전단 동일)
 }
 
 // ── Phase 02 출력 (현장조사 측정값) ───────────────────────────────

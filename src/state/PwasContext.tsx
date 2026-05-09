@@ -15,6 +15,7 @@ const DEFAULT_P01: Phase01Output = {
   length: 30, height: 8.0,
   tierPanels: [2, 2, 2, 2],
   tierBerms: [0.5, 0.5, 0.5, 0.5],
+  tierMethods: ['PSP', 'PSP', 'PPP', 'PPP'],
 }
 
 const DEFAULT_P02: Phase02Output = {
