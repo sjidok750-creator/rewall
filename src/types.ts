@@ -154,19 +154,12 @@ export interface SectionE {
   tiers: SoilTier[]
 }
 
-// F. 하중 조건
+// F. 하중 조건 (내진검토 제외 — 향후 별도 모듈로 추가 예정)
 export interface SectionF {
   q_surcharge: number       // kN/m²
   q_type: 'vehicle' | 'structure' | 'none'
   gwl: number               // m (저면 기준, -99 = 없음)
   gwl_ref: 'base' | 'top'
-  seismic_on: boolean
-  seismic_zone: 'I' | 'II'
-  soil_class: 'S1' | 'S2' | 'S3' | 'S4' | 'S5'
-  return_period: '500' | '1000' | '2400'
-  kh_manual: boolean
-  kh: number                // g
-  kv: number                // g
   _origin: OriginMap<SectionF>
 }
 

@@ -212,7 +212,7 @@ export default function BasicInfoPanel() {
           </Field>
           {kds === '2016' && (
             <div style={{ gridColumn: '1 / -1', padding: '5px 8px', background: '#FFF8E7', border: '1px solid #E8C97A', borderRadius: 2, ...MONO, fontSize: 9, color: '#7A5A1A', lineHeight: 1.5 }}>
-              ※ 2016→2020: 활동·전도FS 통일, M-O 지진계수, 앵커안전율 재정비
+              ※ 2016→2020: 활동·전도FS 통일, 앵커안전율 재정비
             </div>
           )}
         </div>

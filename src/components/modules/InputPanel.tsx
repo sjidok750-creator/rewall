@@ -282,8 +282,6 @@ const DEFAULT_P03 = (stages: number): Phase03Output => ({
   E: { tierMode: 'uniform', tiers: Array.from({ length: stages }, DEFAULT_SOIL) },
   F: {
     q_surcharge: 13, q_type: 'vehicle', gwl: -99, gwl_ref: 'base',
-    seismic_on: true, seismic_zone: 'I', soil_class: 'S2', return_period: '1000',
-    kh_manual: false, kh: 0.154, kv: 0.077,
     _origin: {},
   },
   G: { B_mode: 'per-tier', tiers: Array.from({ length: stages }, DEFAULT_BASE) },
@@ -418,28 +416,6 @@ export default function InputPanel() {
       return changed ? next : prev
     })
   }, [p02])
-
-  // ── 지진계수 자동 매핑 (KDS 17 10 00 단순 가이드) ────────────────
-  // 자동 모드일 때 표시할 값을 useMemo로 계산. setState 부작용 없음.
-  const autoKh = useMemo(() => {
-    if (p03.F.kh_manual || !p03.F.seismic_on) return p03.F.kh
-    const Z: Record<string, number> = { I: 0.11, II: 0.07 }
-    const S: Record<string, number> = { S1: 1.0, S2: 1.4, S3: 1.6, S4: 1.8, S5: 2.0 }
-    const I: Record<string, number> = { '500': 1.0, '1000': 1.4, '2400': 2.0 }
-    return +(Z[p03.F.seismic_zone] * S[p03.F.soil_class] * I[p03.F.return_period]).toFixed(3)
-  }, [p03.F.kh_manual, p03.F.seismic_on, p03.F.seismic_zone,
-      p03.F.soil_class, p03.F.return_period, p03.F.kh])
-  const autoKv = useMemo(() =>
-    p03.F.kh_manual ? p03.F.kv : +(autoKh / 2).toFixed(3),
-    [p03.F.kh_manual, p03.F.kv, autoKh])
-  // 자동값이 바뀌면 P03.F.kh / kv 동기화 (외부 상태 sync)
-  useEffect(() => {
-    if (p03.F.kh_manual || !p03.F.seismic_on) return
-    if (p03.F.kh === autoKh && p03.F.kv === autoKv) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setP03(prev => ({ ...prev, F: { ...prev.F, kh: autoKh, kv: autoKv,
-      _origin: { ...prev.F._origin, kh: 'auto', kv: 'auto' } } }))
-  }, [autoKh, autoKv, p03.F.kh_manual, p03.F.seismic_on, p03.F.kh, p03.F.kv])
 
   // ── 헬퍼: 섹션별 setter (얕은 머지) ──────────────────────────────
   const updA = <K extends keyof SectionA>(k: K, v: SectionA[K], confirm = true) =>
@@ -810,7 +786,7 @@ export default function InputPanel() {
               setP03(prev => ({ ...prev, E: { ...prev.E, tiers: prev.E.tiers.map(t => ({ ...t, [k]: v })) } }))} />
 
           {/* ══ F. 하중 조건 ════════════════════════════════════════ */}
-          <SectionHead code="F" title="하중 조건 (상재·수위·지진)" sub="→ Phase 04-A Pa, M-O 토압"
+          <SectionHead code="F" title="하중 조건 (상재·지하수위)" sub="→ Phase 04-A 토압·지지력"
             focused={focusSec === 'F'} onClick={() => setFocusSec('F')} />
 
           <FieldRow label="상재하중 종류"
@@ -846,102 +822,6 @@ export default function InputPanel() {
             }}>
             <NumInput value={p03.F.gwl} onChange={v => updF('gwl', v)} unit="m" step={0.1} min={-99} />
           </FieldRow>
-
-          <FieldRow label="지진 검토" prov={p03.F._origin.seismic_on}
-            tooltip={{
-              effect: 'Phase 04-A Mononobe-Okabe 토압 적용 여부',
-              limit: 'KDS 17 10 00 — 1종/2종 시설물은 내진검토 의무',
-              source: 'KDS 17 10 00 : 2024',
-            }}>
-            <RadioGroup value={p03.F.seismic_on ? 'on' : 'off'}
-              onChange={v => updF('seismic_on', v === 'on')}
-              options={[{ value: 'on', label: '검토' }, { value: 'off', label: '미검토' }]} />
-          </FieldRow>
-
-          {p03.F.seismic_on && (
-            <>
-              <FieldRow label="지진구역 Z"
-                tooltip={{
-                  effect: 'k_h = Z·S·I 매핑의 Z항. 구역 I=0.11g, II=0.07g',
-                  limit: 'KDS 17 10 00 §4 — 행정구역 매핑표 확인',
-                  source: 'KDS 17 10 00 : 2024 §4',
-                }}>
-                <RadioGroup value={p03.F.seismic_zone} onChange={v => updF('seismic_zone', v)}
-                  options={[
-                    { value: 'I',  label: 'I (0.11g)' },
-                    { value: 'II', label: 'II (0.07g)' },
-                  ]} />
-              </FieldRow>
-
-              <FieldRow label="지반등급 S"
-                tooltip={{
-                  effect: 'S1=1.0, S2=1.4, S3=1.6, S4=1.8, S5=2.0 (단주기)',
-                  limit: 'KDS 17 10 00 §4.2 — 평균 전단파속도 Vs30 기반 분류',
-                  source: 'KDS 17 10 00 : 2024 §4.2',
-                }}>
-                <select value={p03.F.soil_class}
-                  onChange={e => updF('soil_class', e.target.value as SectionF['soil_class'])}
-                  style={{ ...inputSt, padding: '4px 7px' }}>
-                  <option value="S1">S1 — 보통암 이상</option>
-                  <option value="S2">S2 — 연암 / 풍화암</option>
-                  <option value="S3">S3 — 매우 조밀 토사</option>
-                  <option value="S4">S4 — 단단~중간 토사</option>
-                  <option value="S5">S5 — 연약 토사</option>
-                </select>
-              </FieldRow>
-
-              <FieldRow label="재현주기 I"
-                tooltip={{
-                  effect: '500년=1.0, 1000년=1.4, 2400년=2.0',
-                  limit: 'KDS 17 10 00 §3 — 시설물 등급별 결정',
-                  source: 'KDS 17 10 00 : 2024 §3',
-                }}>
-                <RadioGroup value={p03.F.return_period} onChange={v => updF('return_period', v)}
-                  options={[
-                    { value: '500',  label: '500년' },
-                    { value: '1000', label: '1000년' },
-                    { value: '2400', label: '2400년' },
-                  ]} />
-              </FieldRow>
-
-              <FieldRow label="k_h 수동 입력"
-                tooltip={{
-                  effect: '특수 지반·단층 인근은 자동 매핑 사용 금지. 별도 정밀해석 후 수동 입력',
-                  limit: '진단기술사 판단 필요',
-                  source: 'KDS 11 80 20 : 2020 §4.2.2',
-                }}>
-                <RadioGroup value={p03.F.kh_manual ? 'yes' : 'no'}
-                  onChange={v => updF('kh_manual', v === 'yes')}
-                  options={[{ value: 'no', label: '자동' }, { value: 'yes', label: '수동' }]} />
-              </FieldRow>
-
-              {p03.F.kh_manual && (
-                <>
-                  <FieldRow label="수평 지진계수 k_h" prov={p03.F._origin.kh}
-                    tooltip={{
-                      effect: 'Phase 04-A M-O 토압 — k_h 0.05 변동에 토압 10% 이상 변동',
-                      limit: '통상 0.05~0.30',
-                      source: 'KDS 11 80 20 : 2020 §4.2.2',
-                    }}>
-                    <NumInput value={p03.F.kh} onChange={v => updF('kh', v)} unit="g" step={0.01} />
-                  </FieldRow>
-                  <FieldRow label="수직 지진계수 k_v" prov={p03.F._origin.kv}
-                    tooltip={{
-                      effect: 'M-O — 통상 k_v = k_h/2',
-                      limit: '통상 0~0.15',
-                      source: 'KDS 11 80 20 : 2020 §4.2.2',
-                    }}>
-                    <NumInput value={p03.F.kv} onChange={v => updF('kv', v)} unit="g" step={0.01} />
-                  </FieldRow>
-                </>
-              )}
-
-              {!p03.F.kh_manual && (
-                <DerivedRow label="자동 산정 k_h / k_v" formula="Z·S·I  /  k_h/2"
-                  value={`${p03.F.kh.toFixed(3)} / ${p03.F.kv.toFixed(3)}`} unit="g" />
-              )}
-            </>
-          )}
 
           {/* ══ G. 기초 폭 B (단별) ════════════════════════════════ */}
           <SectionHead code="G" title="★ 기초 폭 B (단별 레벨링 콘크리트)"
@@ -1285,10 +1165,10 @@ const SECTION_CITES: Record<string, { title: string; formula: string; note: stri
     note: 'δ=φ/2 → 2φ/3로 바뀌면 Ka 약 5~8% 감소. c=5kPa만 있어도 활동 FS 0.2 이상 상승.',
   },
   F: {
-    title: 'KDS 11 80 20 §4.2.2 + KDS 17 10 00',
+    title: 'KDS 11 80 20 : 2020 §4.2.1 (상재하중·지하수위)',
     formula:
-      'k_h = Z · S · I\nk_v = k_h / 2\n\nθ_e = arctan(k_h / (1−k_v))\n\nKAE (Mononobe-Okabe): KDS 11 80 20 §4.2.2',
-    note: '자동 매핑은 일반 가이드. 단층 인근·특수 지반은 정밀해석 후 수동 입력 필수.',
+      '상재하중 가산:\n  ΔPa = q · H · Ka\n\n지하수위 발생 시:\n  u = γ_w · h_w  (정수압)\n  → Phase 04-A에서 토압에 가산',
+    note: '내진검토(Mononobe-Okabe)는 본 버전에서 제외. 향후 별도 모듈로 추가 예정.',
   },
   G: {
     title: 'KDS 11 80 20 : 2020 §4.4 (지지력)',
@@ -1408,8 +1288,6 @@ function KDSSideBoard({ focused, confidence, p03, derived }: {
           <Summary k="유효 d" v={`${derived.dEff.toFixed(1)} mm`} />
           <Summary k="T_res(앵커)" v={`${derived.tresFinalAnchor.toFixed(1)} kN`} />
           <Summary k="T_res(네일)" v={`${derived.tresFinalNail.toFixed(1)} kN`} />
-          <Summary k="k_h / k_v"
-            v={p03.F.seismic_on ? `${p03.F.kh.toFixed(3)} / ${p03.F.kv.toFixed(3)}` : '미검토'} />
           <Summary k="B_eff(1단)"
             v={`${Math.max(0, (p03.G.tiers[0]?.B ?? 0) - 2 * (p03.G.tiers[0]?.ds ?? 0)).toFixed(2)} m`} />
           <Summary k="γ / φ / c"

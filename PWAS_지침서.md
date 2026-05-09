@@ -342,7 +342,7 @@ src/calc/
 단 i에 대해:
   1) h_i 확인 (패널 수 × 패널 높이)
   2) 배면토 단위중량 γ, 내부마찰각 φ 입력
-  3) Ka 계산 (Coulomb, 지진 시 M-O)
+  3) Ka 계산 (Coulomb)
   4) Pa_i = ½γh_i²Ka (+ 상재하중 항)
   5) 활동 FS_i = (ΣV×tanδ + c×B) / Pa_i×cosα
   6) 전도 FS_i = ΣM_저항 / ΣM_전도
@@ -453,7 +453,7 @@ export interface WallParams {
 | C | PS 잔존력 (Lift-off / 추정) | 04-B 패널휨, 04-C P_eff | KDS 14 30 §5.5 |
 | D | 보강재 제원 (네일·앵커) | 04-B 펀칭·휨 | KDS 11 70 15 |
 | E | 지반 정수 | 04-A Coulomb·활동·전도 | KDS 11 80 20 §4.2.1 |
-| F | 하중 조건 (상재·수위·지진) | 04-A Pa, M-O 토압 | KDS 11 80 20 §4.2.2; KDS 17 10 00 |
+| F | 하중 조건 (상재·지하수위) | 04-A 토압·지지력 | KDS 11 80 20 §4.2.1 |
 | G | ★ 기초 폭 B (단별) | 04-A 활동·전도·지지력 | KDS 11 80 20 §4.4 |
 
 **주요 기능:**
@@ -462,7 +462,7 @@ export interface WallParams {
 - **자료 분기 배너** — Phase 01 docStatus(full/drawing-only/partial/none)에 따라 상단 안내·경고
 - **단별 vs 전체 토글** — D·E·G 섹션은 'uniform' / 'per-tier' 라디오로 입력 방식 선택
 - **자동 산정값 (DerivedRow)** — A_ps, 유효깊이 d, 확정 fck, 유효 fy, ΣΔfp, T_res 확정값, B_eff, 자동 k_h
-- **지진계수 자동 매핑** — KDS 17 10 00 Z·S·I 곱셈 (자동/수동 토글)
+- ~~지진계수 자동 매핑~~ — 내진검토 본 버전 제외, 향후 별도 모듈
 - **우측 KDS 라이브 보드 3블록**: ① 현재 섹션 KDS 인용 (식·해설), ② 신뢰도 게이지 (출처 가중평균), ③ Phase 04 이월 핵심값 요약
 
 **상태 관리:**
@@ -479,12 +479,11 @@ export interface WallParams {
 
 #### A. 외적안정 [KDS 11 80 20] — 단별 독립 검토
 ```
-각 단 i에 대해:
+각 단 i에 대해 (정상하중, 내진검토 제외):
   토압: Pa_i = ½γh_i²Ka (Coulomb)
-        지진 시: Mononobe-Okabe 적용
-  활동: FS = (ΣV×tanδ + c×B) / ΣH  ≥ 1.5 (지진 1.1)
-  전도: FS = ΣM_저항 / ΣM_전도      ≥ 1.5 (지진 1.1)
-  지지력: FS = q_u / q_max           ≥ 2.5 (지진 2.0)
+  활동: FS = (ΣV×tanδ + c×B) / ΣH  ≥ 1.5
+  전도: FS = ΣM_저항 / ΣM_전도      ≥ 1.5
+  지지력: FS = q_u / q_max           ≥ 2.5
   자체파괴: FS ≥ 2.0
 ```
 
@@ -550,12 +549,14 @@ export interface WallParams {
 
 ## 8. 안전율 기준
 
-| 항목 | 정상 하중 | 지진 시 | 적용 기준 |
-|------|----------|--------|---------|
-| 활동 | FS ≥ **1.5** | FS ≥ 1.1 | KDS 11 80 20 |
-| 전도 | FS ≥ **1.5** | FS ≥ 1.1 | KDS 11 80 20 |
-| 지지력 | FS ≥ **2.5** | FS ≥ 2.0 | KDS 11 80 20 |
-| 자체파괴 | FS ≥ **2.0** | — | KDS 11 80 20 |
+> 내진검토(지진 시 FS 기준)는 본 버전 제외. 향후 별도 모듈로 추가 예정.
+
+| 항목 | 정상하중 | 적용 기준 |
+|------|---------|---------|
+| 활동 | FS ≥ **1.5** | KDS 11 80 20 |
+| 전도 | FS ≥ **1.5** | KDS 11 80 20 |
+| 지지력 | FS ≥ **2.5** | KDS 11 80 20 |
+| 자체파괴 | FS ≥ **2.0** | KDS 11 80 20 |
 
 ---
 
@@ -572,7 +573,7 @@ export interface WallParams {
 
 **KDS 2016 → 2020 주요 변경사항:**
 - 활동·전도 FS 기준 통일 적용
-- Mononobe-Okabe 지진계수 체계 반영
+- ~~Mononobe-Okabe 지진계수 체계 반영~~ (내진검토 본 버전 미포함)
 - 앵커 안전율 체계 재정비
 
 ---
@@ -736,7 +737,7 @@ export interface WallParams {
 - **상태 공유:** Lift-up 대신 Context mirror 패턴 채택 (BasicInfoPanel·SiteSurveyPanel 내부 useState 유지, useEffect로 publish). 기존 패널 변경 최소화 + 언제든 본격 store(zustand 등) 전환 가능.
 - **출처(Provenance) 시스템:** 모든 입력값 옆 7색 뱃지(measured/drawing/phase02/auto/estimated/empirical/none). 보고서 추적성·진단기술사 검토용.
 - **단별 입력 토글:** D·E·G 섹션에 'uniform' / 'per-tier' 라디오. 기본 D·E는 uniform, G는 per-tier (단별 독립 기초 모델 강조).
-- **지진계수:** KDS 17 10 00 Z·S·I 자동 매핑 + 수동 토글. 단층 인근·특수 지반은 수동 사용.
+- ~~지진계수~~ — 내진검토 본 버전 제외. 향후 별도 모듈로 추가 예정.
 - **KDS 미명시 사항(레벨링 콘크리트 단별 독립 기초)**: G섹션 안내문 + 면책 푸터에서 본 시스템 고유 모델임을 명시.
 
 ---
@@ -757,7 +758,7 @@ export interface WallParams {
 - [x] 기초 폭 B 입력 — G섹션 단별 입력으로 분리 (Phase 01 개념값 별도)
 - [x] 단별 보강재 종류 다를 경우 처리 — D섹션 'per-tier' 토글
 - [x] 지반정수 단층 vs 단별 입력 구분 — E섹션 'uniform/per-tier' 토글
-- [x] 지진계수 입력 방법 — F섹션 자동(Z·S·I) / 수동 토글
+- [ ] 내진검토 (Mononobe-Okabe) — 향후 별도 모듈로 추가 예정 (본 버전 제외)
 - [ ] 단별 상재하중 q_i — 소단 폭 < 2H 조건부 적용 여부 (Phase 04 진입 시 결정)
 
 ### Phase 04 설계 시 결정 필요
@@ -766,7 +767,7 @@ export interface WallParams {
 - [x] 두부 하중 전달 3단 검토 항목 확정 — 펀칭전단·패널휨·정착지압 (2026-05-09, §5-4)
 - [x] Phase 03 A섹션 `b` 필드 — "해석 단위폭 1000mm"에서 "패널 폭 B_panel"로 의미 변경
 - [ ] Coulomb vs 시행쐐기법 선택 옵션
-- [ ] M-O 토압식 적용 (Phase 03에서 k_h, k_v는 이미 입력)
+- [ ] ~~M-O 토압식~~ — 내진검토 제외로 불필요 (향후 재검토)
 - [ ] 지하수위 반영 방식 (Phase 03에서 GWL은 이미 입력)
 - [ ] Phase 03 출력의 Phase 04 전달 방식 (Context 추가 mirror 또는 props lift)
 - [ ] B_panel 형상비(B/h) 분기 기준 구현 — ≤2: 평판해석, >2: 보해석 축약
